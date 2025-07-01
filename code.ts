@@ -102,12 +102,11 @@ figma.ui.onmessage = async (msg) => {
 
       if (msg.copyText && node.type === "TEXT") {
         let fontName, fontSize, letterSpacing, lineHeight, fills;
-        // Si el texto tiene caracteres, intenta obtener el primer estilo
         if (node.characters.length > 0) {
           try {
             fontName = await node.getRangeFontName(0, 1);
           } catch {
-            fontName = node.fontName; // fallback si getRangeFontName falla
+            fontName = node.fontName;
           }
           try {
             fontSize = node.getRangeFontSize(0, 1);
@@ -130,7 +129,6 @@ figma.ui.onmessage = async (msg) => {
             fills = node.fills;
           }
         } else {
-          // Si el texto está vacío, usa los estilos del nodo
           fontName = node.fontName;
           fontSize = node.fontSize;
           letterSpacing = node.letterSpacing;
@@ -138,9 +136,8 @@ figma.ui.onmessage = async (msg) => {
           fills = node.fills;
         }
 
-        // Si fontName sigue siendo "MIXED", notifica y no copies
         if (fontName === figma.mixed || fontSize === figma.mixed) {
-          figma.notify("El texto tiene fuentes mixtas, se copiará solo el primer estilo.");
+          figma.notify("El texto tiene estilos mixtos, se copiará solo el primer estilo.");
         }
 
         copiedTextStyles = {

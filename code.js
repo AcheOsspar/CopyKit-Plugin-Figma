@@ -57,7 +57,7 @@ function loadSize() {
         });
     });
 }
-figma.showUI(__html__, { width: 220, height: 180 });
+figma.showUI(__html__, { width: 360, height: 260 }); // Ajusta el tamaño inicial según tu UI
 loadSize();
 figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, function () {
     var node, textNode, fontName, fontSize, letterSpacing, lineHeight, fills, _a, fontName, fontSize, letterSpacing, lineHeight, fills, _b, _i, _c, node, parent_1, frame, e_1;

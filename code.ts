@@ -11,7 +11,7 @@ async function loadSize() {
   }
 }
 
-figma.showUI(__html__, { width: 220, height: 180 });
+figma.showUI(__html__, { width: 360, height: 260 }); // Ajusta el tamaño inicial según tu UI
 loadSize();
 
 figma.ui.onmessage = async (msg) => {

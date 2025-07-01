@@ -1,18 +1,7 @@
 let copiedStyles = null;
 let copiedTextStyles = null;
 
-async function loadSize() {
-  const size = await figma.clientStorage.getAsync('pluginWindowSize');
-  if (size) {
-    figma.ui.resize(size.width, size.height);
-    figma.ui.postMessage({ type: 'set-size', width: size.width, height: size.height });
-  } else {
-    figma.ui.resize(220, 180);
-  }
-}
-
-figma.showUI(__html__, { width: 360, height: 260 }); // Ajusta el tamaño inicial según tu UI
-loadSize();
+figma.showUI(__html__, { width: 350, height: 350 }); // Ventana por defecto 350x350
 
 figma.ui.onmessage = async (msg) => {
   try {
@@ -269,14 +258,6 @@ figma.ui.onmessage = async (msg) => {
       }
 
       figma.notify("Estilos aplicados");
-    }
-
-    if (msg.type === "resize") {
-      figma.ui.resize(msg.width, msg.height);
-      await figma.clientStorage.setAsync("pluginWindowSize", {
-        width: msg.width,
-        height: msg.height,
-      });
     }
   } catch (e) {
     figma.notify("Error en el plugin: " + (e.message || e));

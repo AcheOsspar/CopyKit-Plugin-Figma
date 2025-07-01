@@ -37,34 +37,13 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 var _this = this;
 var copiedStyles = null;
 var copiedTextStyles = null;
-function loadSize() {
-    return __awaiter(this, void 0, void 0, function () {
-        var size;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, figma.clientStorage.getAsync('pluginWindowSize')];
-                case 1:
-                    size = _a.sent();
-                    if (size) {
-                        figma.ui.resize(size.width, size.height);
-                        figma.ui.postMessage({ type: 'set-size', width: size.width, height: size.height });
-                    }
-                    else {
-                        figma.ui.resize(220, 180);
-                    }
-                    return [2 /*return*/];
-            }
-        });
-    });
-}
-figma.showUI(__html__, { width: 360, height: 260 }); // Ajusta el tamaño inicial según tu UI
-loadSize();
+figma.showUI(__html__, { width: 350, height: 350 }); // Ventana por defecto 350x350
 figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, function () {
     var node, textNode, fontName, fontSize, letterSpacing, lineHeight, fills, _a, fontName, fontSize, letterSpacing, lineHeight, fills, _b, _i, _c, node, parent_1, frame, e_1;
     return __generator(this, function (_d) {
         switch (_d.label) {
             case 0:
-                _d.trys.push([0, 25, , 26]);
+                _d.trys.push([0, 23, , 24]);
                 if (!(msg.type === "copy")) return [3 /*break*/, 15];
                 node = figma.currentPage.selection[0];
                 if (!node) {
@@ -335,22 +314,12 @@ figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, fu
             case 21:
                 figma.notify("Estilos aplicados");
                 _d.label = 22;
-            case 22:
-                if (!(msg.type === "resize")) return [3 /*break*/, 24];
-                figma.ui.resize(msg.width, msg.height);
-                return [4 /*yield*/, figma.clientStorage.setAsync("pluginWindowSize", {
-                        width: msg.width,
-                        height: msg.height,
-                    })];
+            case 22: return [3 /*break*/, 24];
             case 23:
-                _d.sent();
-                _d.label = 24;
-            case 24: return [3 /*break*/, 26];
-            case 25:
                 e_1 = _d.sent();
                 figma.notify("Error en el plugin: " + (e_1.message || e_1));
-                return [3 /*break*/, 26];
-            case 26: return [2 /*return*/];
+                return [3 /*break*/, 24];
+            case 24: return [2 /*return*/];
         }
     });
 }); };

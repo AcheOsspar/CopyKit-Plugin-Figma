@@ -75,6 +75,7 @@
       <label><input type="checkbox" id="style" checked> Estilos visuales (relleno, borde, efectos)</label>
       <label><input type="checkbox" id="layout" checked> Layout (padding, spacing)</label>
       <label><input type="checkbox" id="text" checked> Estilos de texto</label>
+      <label><input type="checkbox" id="autoWrap" checked> Aplicar Auto Layout si es necesario</label>
     </div>
     <button id="copy">📋 Copiar estilos</button>
     <button id="paste">📎 Pegar estilos</button>
@@ -93,7 +94,8 @@
         return {
           copyStyle: document.getElementById('style').checked,
           copyLayout: document.getElementById('layout').checked,
-          copyText: document.getElementById('text').checked
+          copyText: document.getElementById('text').checked,
+          autoWrap: document.getElementById('autoWrap').checked
         };
       };
 
@@ -104,7 +106,6 @@
         parent.postMessage({ pluginMessage: { type: 'paste', ...getOptions() } }, '*');
       };
 
-      // Cargar tamaño guardado
       window.onmessage = (event) => {
         const message = event.data.pluginMessage;
         if (message && message.type === 'set-size') {
@@ -113,12 +114,10 @@
         }
       };
 
-      // Enviar resize cuando cambia ancho o alto
       const resizeUI = () => {
         const width = parseInt(document.getElementById('width').value);
         const height = parseInt(document.getElementById('height').value);
         parent.postMessage({ pluginMessage: { type: 'resize', width, height } }, '*');
-        // Guardar tamaño en localStorage para demo (no se guarda en Figma)
         localStorage.setItem('pluginWidth', width);
         localStorage.setItem('pluginHeight', height);
       };
@@ -126,7 +125,6 @@
       document.getElementById('width').addEventListener('change', resizeUI);
       document.getElementById('height').addEventListener('change', resizeUI);
 
-      // Cargar tamaño de localStorage al iniciar
       window.onload = () => {
         const w = localStorage.getItem('pluginWidth');
         const h = localStorage.getItem('pluginHeight');

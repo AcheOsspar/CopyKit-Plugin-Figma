@@ -156,6 +156,7 @@ figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, fu
                     copiedStyles = {
                         fills: clone(node.fills),
                         strokes: clone(node.strokes),
+                        strokeWeight: "strokeWeight" in node ? node.strokeWeight : undefined,
                         cornerRadius: "cornerRadius" in node ? node.cornerRadius : null,
                         effects: "effects" in node ? node.effects : [],
                         layoutMode: node.layoutMode || null,
@@ -284,11 +285,29 @@ figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, fu
             case 18:
                 // Aplicar estilos visuales normales
                 if (msg.copyStyle && copiedStyles && "fills" in node) {
+                    // Reemplazar fills
                     node.fills = clone(copiedStyles.fills);
+                    // Reemplazar strokes y strokeWeight
                     node.strokes = clone(copiedStyles.strokes);
+                    // Si el nodo copiado tiene strokeWeight, reemplazarlo (para RECTANGLE, FRAME, etc.)
+                    if ("strokeWeight" in copiedStyles && "strokeWeight" in node) {
+                        node.strokeWeight = copiedStyles.strokeWeight;
+                    }
+                    else if ("strokes" in copiedStyles && copiedStyles.strokes.length > 0 && "strokeWeight" in node) {
+                        // Si el nodo copiado tiene strokes, pero no strokeWeight explícito, intenta copiar el del nodo copiado
+                        if ("strokeWeight" in node && "strokeWeight" in copiedStyles) {
+                            node.strokeWeight = copiedStyles.strokeWeight;
+                        }
+                        else if ("strokeWeight" in node && "strokeWeight" in copiedStyles.strokes[0]) {
+                            node.strokeWeight = copiedStyles.strokes[0].strokeWeight || node.strokeWeight;
+                        }
+                    }
+                    // Reemplazar cornerRadius si aplica
                     if ("cornerRadius" in node && copiedStyles.cornerRadius !== null)
                         node.cornerRadius = copiedStyles.cornerRadius;
+                    // Reemplazar efectos
                     node.effects = clone(copiedStyles.effects);
+                    // Reemplazar layout si corresponde
                     if ("layoutMode" in node && copiedStyles.layoutMode !== null && msg.copyLayout) {
                         node.layoutMode = copiedStyles.layoutMode;
                         node.paddingLeft = copiedStyles.paddingLeft;

@@ -19,23 +19,6 @@
         margin-bottom: 12px;
       }
 
-      button {
-        width: 100%;
-        padding: 10px;
-        margin-top: 12px;
-        background-color: #4f46e5;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s ease;
-      }
-
-      button:hover {
-        background-color: #4338ca;
-      }
-
       .checkbox-group {
         display: flex;
         flex-direction: column;
@@ -49,6 +32,35 @@
         gap: 6px;
       }
 
+      button {
+        width: 100%;
+        padding: 10px;
+        margin-top: 12px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+
+      #copy {
+        background-color: #3B82F6; /* Azul */
+        color: white;
+      }
+
+      #copy:hover {
+        background-color: #2563EB;
+      }
+
+      #paste {
+        background-color: #10B981; /* Verde */
+        color: white;
+      }
+
+      #paste:hover {
+        background-color: #059669;
+      }
+
       .small {
         font-size: 12px;
         color: #666;
@@ -60,10 +72,10 @@
   <body>
     <h2>Copiar / Pegar estilos</h2>
     <div class="checkbox-group">
-      <label><input type="checkbox" id="style" checked> Estilos visuales (relleno, borde, efectos)</label>
-      <label><input type="checkbox" id="layout" checked> Layout (padding, spacing)</label>
-      <label><input type="checkbox" id="text" checked> Estilos de texto</label>
-      <label><input type="checkbox" id="autoWrap" checked> Aplicar Auto Layout si es necesario</label>
+      <label><input type="checkbox" id="style" checked> <b>Estilos visuales</b>(relleno, borde, efectos)</label>
+      <label><input type="checkbox" id="layout" checked> <b>Layout</b>(padding, spacing)</label>
+      <label><input type="checkbox" id="text" checked> <b>Estilos de texto</b></label>
+      <label><input type="checkbox" id="autoWrap" checked> <b>Aplicar Auto Layout si es necesario</b></label>
     </div>
     <button id="copy">📋 Copiar estilos</button>
     <button id="paste">📎 Pegar estilos</button>
@@ -85,35 +97,6 @@
       };
       document.getElementById('paste').onclick = () => {
         parent.postMessage({ pluginMessage: { type: 'paste', ...getOptions() } }, '*');
-      };
-
-      window.onmessage = (event) => {
-        const message = event.data.pluginMessage;
-        if (message && message.type === 'set-size') {
-          document.getElementById('width').value = message.width;
-          document.getElementById('height').value = message.height;
-        }
-      };
-
-      const resizeUI = () => {
-        const width = parseInt(document.getElementById('width').value);
-        const height = parseInt(document.getElementById('height').value);
-        parent.postMessage({ pluginMessage: { type: 'resize', width, height } }, '*');
-        localStorage.setItem('pluginWidth', width);
-        localStorage.setItem('pluginHeight', height);
-      };
-
-      document.getElementById('width').addEventListener('change', resizeUI);
-      document.getElementById('height').addEventListener('change', resizeUI);
-
-      window.onload = () => {
-        const w = localStorage.getItem('pluginWidth');
-        const h = localStorage.getItem('pluginHeight');
-        if (w && h) {
-          document.getElementById('width').value = w;
-          document.getElementById('height').value = h;
-          resizeUI();
-        }
       };
     </script>
   </body>

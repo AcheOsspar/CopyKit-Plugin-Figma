@@ -1,7 +1,7 @@
 let copiedStyles = null;
 let copiedTextStyles = null;
 
-figma.showUI(__html__, { width: 350, height: 350 }); // Ventana por defecto 350x350
+figma.showUI(__html__, { width: 350, height: 360 }); // Ventana por defecto 350x360
 
 figma.ui.onmessage = async (msg) => {
   try {

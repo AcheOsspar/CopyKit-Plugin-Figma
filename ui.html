@@ -14,9 +14,18 @@
         color: #333;
       }
 
+      h1 {
+        font-size: 22px;
+        font-weight: 700;
+        margin: 0 0 10px;
+        text-align: center;
+        color: #3B82F6;
+      }
+
       h2 {
         font-size: 16px;
         margin-bottom: 12px;
+        text-align: center;
       }
 
       .checkbox-group {
@@ -44,7 +53,7 @@
       }
 
       #copy {
-        background-color: #3B82F6; /* Azul */
+        background-color: #3B82F6;
         color: white;
       }
 
@@ -53,7 +62,7 @@
       }
 
       #paste {
-        background-color: #10B981; /* Verde */
+        background-color: #10B981;
         color: white;
       }
 
@@ -67,9 +76,17 @@
         text-align: center;
         margin-top: 10px;
       }
+
+      .footer {
+        font-size: 11px;
+        color: #999;
+        text-align: center;
+        margin-top: 16px;
+      }
     </style>
   </head>
   <body>
+    <h1>CopyKit</h1>
     <h2>Copiar / Pegar estilos</h2>
     <div class="checkbox-group">
       <label><input type="checkbox" id="style" checked> <b>Estilos visuales</b>(relleno, borde, efectos)</label>
@@ -81,6 +98,7 @@
     <button id="paste">📎 Pegar estilos</button>
 
     <div class="small">Selecciona un nodo para copiar o aplicar estilos</div>
+    <div class="footer">Con amor, de Alain ❤️</div>
 
     <script>
       const getOptions = () => {

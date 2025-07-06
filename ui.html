@@ -53,32 +53,66 @@
       flex-direction: column;
       gap: 7px;
     }
-    label {
-      font-size: 10px;
+
+    /* Checkbox personalizado */
+    .custom-checkbox {
       display: flex;
       align-items: center;
       gap: 6px;
+      font-size: 10px;
       font-weight: 500;
     }
-    label span {
+
+    .custom-checkbox input[type="checkbox"] {
+      display: none;
+    }
+
+    .custom-checkbox .checkmark {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #000000;
+      border-radius: 4px;
+      background-color: #fff;
+      position: relative;
+      display: inline-block;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .custom-checkbox input[type="checkbox"]:checked + .checkmark::after {
+      content: '';
+      position: absolute;
+      top: 45%;
+      left: 50%;
+      width: 4px;
+      height: 8px;
+      border: solid #000000;
+      border-width: 0 2px 2px 0;
+      transform: translate(-50%, -50%) rotate(45deg);
+    }
+
+    .custom-checkbox span:not(.checkmark) {
       font-weight: 700;
       color: #111;
     }
-    label small {
+
+    .custom-checkbox small {
       font-weight: 400;
       color: #888;
       margin-left: 2px;
       font-size: 11px;
     }
+
     .button-group {
       display: flex;
       flex-direction: column;
       gap: 8px;
       margin-top: 4px;
     }
+
     button {
       width: 100%;
-      padding: 8px 0;
+      padding: 10px 0;
       border: none;
       border-radius: 25px;
       font-size: 13px;
@@ -91,20 +125,25 @@
       transition: background 0.2s;
       box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     }
+
     #copy {
       background: #3B82F6;
       color: #fff;
     }
+
     #copy:hover {
       background: #2563EB;
     }
+
     #paste {
       background: #10B981;
       color: #fff;
     }
+
     #paste:hover {
       background: #059669;
     }
+
     .small {
       font-size: 10px;
       color: #888;
@@ -112,6 +151,7 @@
       margin-top: 6px;
       margin-bottom: 0;
     }
+
     .footer {
       font-size: 9.5px;
       color: #aaa;
@@ -123,20 +163,17 @@
       justify-content: center;
       gap: 3px;
     }
+
     .footer .heart {
       font-size: 11px;
       color: #888;
     }
-    input[type="checkbox"] {
-      accent-color: #111;
-      width: 14px;
-      height: 14px;
-      margin-right: 2px;
-    }
+
     .fa-solid {
       font-size: 15px;
       margin-right: 4px;
     }
+
     @media (max-width: 300px) {
       .card { max-width: 98vw; }
     }
@@ -151,22 +188,26 @@
   </div>
   <div class="card">
     <div class="checkbox-group">
-      <label>
+      <label class="custom-checkbox">
         <input type="checkbox" id="style" checked>
+        <span class="checkmark"></span>
         <span>Estilos visuales</span>
         <small>(relleno, borde, efectos)</small>
       </label>
-      <label>
+      <label class="custom-checkbox">
         <input type="checkbox" id="layout" checked>
+        <span class="checkmark"></span>
         <span>Layout</span>
         <small>(padding, spacing)</small>
       </label>
-      <label>
+      <label class="custom-checkbox">
         <input type="checkbox" id="text" checked>
+        <span class="checkmark"></span>
         <span>Estilos de texto</span>
       </label>
-      <label>
+      <label class="custom-checkbox">
         <input type="checkbox" id="autoWrap" checked>
+        <span class="checkmark"></span>
         <span>Aplicar Auto Layout</span>
         <small>(si es necesario)</small>
       </label>

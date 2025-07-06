@@ -13,7 +13,7 @@ Plugins-Figma is a Figma plugin that allows users to easily copy and paste style
 ## Installation
 1. Clone the repository:
    ```
-   git clone <repository-url>
+   git clone https://github.com/AcheOsspar/Plugins-Figma.git
    ```
 2. Open the `ui.html` file in Figma as a plugin.
 

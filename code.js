@@ -37,7 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 var _this = this;
 var copiedStyles = null;
 var copiedTextStyles = null;
-figma.showUI(__html__, { width: 350, height: 360 }); // Ventana por defecto 350x360
+figma.showUI(__html__, { width: 320, height: 390 }); // Ventana con tamaño perfecto para el usuario 320x390
 figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, function () {
     var node, textNode, fontName, fontSize, letterSpacing, lineHeight, fills, _a, fontName, fontSize, letterSpacing, lineHeight, fills, _b, _i, _c, node, parent_1, frame, e_1;
     return __generator(this, function (_d) {

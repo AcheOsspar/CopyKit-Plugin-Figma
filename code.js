@@ -1,3 +1,5 @@
+// CÓDIGO PRINCIPAL DEL PLUGIN (code.js)
+
 // Polyfills de TypeScript para funciones asíncronas
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -38,88 +40,129 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 
 var _this = this;
 
-// Variables globales para almacenar los estilos copiados
-var copiedStyles = null;
-var copiedTextStyles = null;
+// Variables globales para almacenar estilos
+var copiedProperties = null;
 
-// Mostrar la interfaz de usuario del plugin
+// Mostrar la Interfaz de Usuario (UI)
 figma.showUI(__html__, { width: 320, height: 390 });
 
-// Manejador de mensajes unificado para toda la comunicación desde la UI
+// Función para clonar propiedades complejas y evitar errores de "solo lectura"
+function clone(val) {
+    return JSON.parse(JSON.stringify(val));
+}
+
+// Manejador de mensajes unificado
 figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
     try {
-        // --- Lógica para guardar preferencias ---
+        // --- GUARDAR Y CARGAR PREFERENCIAS ---
         if (msg.type === 'saveTheme') {
             yield figma.clientStorage.setAsync('theme', msg.value);
             return;
         }
-
         if (msg.type === 'saveCheckbox') {
             yield figma.clientStorage.setAsync(msg.key, msg.value);
             return;
         }
-
         if (msg.type === 'saveLanguage') {
             yield figma.clientStorage.setAsync('language', msg.value);
             return;
         }
-
-        // --- Lógica para cargar preferencias ---
         if (msg.type === 'loadPreferences') {
             const [theme, style, layout, text, autoWrap, language] = yield Promise.all([
-                figma.clientStorage.getAsync('theme'),
-                figma.clientStorage.getAsync('style'),
-                figma.clientStorage.getAsync('layout'),
-                figma.clientStorage.getAsync('text'),
-                figma.clientStorage.getAsync('autoWrap'),
-                figma.clientStorage.getAsync('language')
+                figma.clientStorage.getAsync('theme'), figma.clientStorage.getAsync('style'),
+                figma.clientStorage.getAsync('layout'), figma.clientStorage.getAsync('text'),
+                figma.clientStorage.getAsync('autoWrap'), figma.clientStorage.getAsync('language')
             ]);
-
             figma.ui.postMessage({
-                type: 'preferencesLoaded', // Mensaje claro para la UI
-                preferences: {
-                    theme,
-                    style,
-                    layout,
-                    text,
-                    autoWrap,
-                    language
-                }
+                type: 'preferencesLoaded',
+                preferences: { theme, style, layout, text, autoWrap, language }
             });
             return;
         }
 
-        // --- Lógica de Copiar y Pegar ---
-        if (msg.type === "copy") {
+        // --- LÓGICA DE COPIAR ---
+        if (msg.type === 'copy') {
             const node = figma.currentPage.selection[0];
             if (!node) {
-                figma.notify("Selecciona un nodo para copiar");
+                figma.notify('Por favor, selecciona un objeto para copiar sus estilos.');
                 return;
             }
-            // Aquí va tu lógica completa para extraer y almacenar estilos en las variables globales
-            // Ejemplo: copiedStyles = { fills: node.fills, ... };
-            figma.notify("Estilos copiados!");
-            return;
+
+            copiedProperties = {}; // Reset
+
+            // Copiar estilos visuales
+            if (msg.copyStyle) {
+                copiedProperties.fills = clone(node.fills);
+                copiedProperties.strokes = clone(node.strokes);
+                copiedProperties.strokeWeight = node.strokeWeight;
+                copiedProperties.strokeAlign = node.strokeAlign;
+                copiedProperties.effects = clone(node.effects);
+            }
+
+            // Copiar layout
+            if (msg.copyLayout && "paddingLeft" in node) {
+                 copiedProperties.paddingLeft = node.paddingLeft;
+                 copiedProperties.paddingRight = node.paddingRight;
+                 copiedProperties.paddingTop = node.paddingTop;
+                 copiedProperties.paddingBottom = node.paddingBottom;
+                 copiedProperties.itemSpacing = node.itemSpacing;
+            }
+            
+            if ("cornerRadius" in node) {
+                copiedProperties.cornerRadius = node.cornerRadius;
+            }
+
+
+            // Copiar estilos de texto
+            if (msg.copyText && node.type === 'TEXT') {
+                copiedProperties.fontName = clone(node.fontName);
+                copiedProperties.fontSize = node.fontSize;
+                copiedProperties.letterSpacing = clone(node.letterSpacing);
+                copiedProperties.lineHeight = clone(node.lineHeight);
+                copiedProperties.textAlignHorizontal = node.textAlignHorizontal;
+                copiedProperties.textAlignVertical = node.textAlignVertical;
+                copiedProperties.textCase = node.textCase;
+                copiedProperties.textDecoration = node.textDecoration;
+            }
+            
+            copiedProperties.autoWrap = msg.autoWrap;
+
+            figma.notify('Estilos copiados! ✅');
         }
 
-        if (msg.type === "paste") {
-            if (!copiedStyles && !copiedTextStyles) {
-                figma.notify("No hay estilos en el portapapeles");
+        // --- LÓGICA DE PEGAR ---
+        if (msg.type === 'paste') {
+            if (!copiedProperties) {
+                figma.notify('No hay estilos copiados. Usa "Copiar" primero.');
                 return;
             }
-            if (figma.currentPage.selection.length === 0) {
-                figma.notify("Selecciona al menos un nodo para pegar los estilos");
-                return;
-            }
-            for (const node of figma.currentPage.selection) {
-                // Aquí va tu lógica completa para aplicar los estilos guardados al nodo
-                // Ejemplo: if (copiedStyles.fills) node.fills = copiedStyles.fills;
-            }
-            figma.notify("Estilos aplicados");
-            return;
-        }
 
-    } catch (e) {
-        figma.notify("Error: " + (e.message || e));
+            const selection = figma.currentPage.selection;
+            if (selection.length === 0) {
+                figma.notify('Selecciona uno o más objetos para pegar los estilos.');
+                return;
+            }
+
+            for (const node of selection) {
+                // Aplicar Auto Layout si es necesario y está activado
+                if (copiedProperties.autoWrap && "paddingLeft" in copiedProperties && !("paddingLeft" in node)) {
+                    node.layoutMode = "VERTICAL";
+                }
+
+                // Aplicar estilos
+                for (const prop in copiedProperties) {
+                    if (prop in node) {
+                        // Cargar fuente antes de aplicarla
+                        if (prop === 'fontName') {
+                            yield figma.loadFontAsync(copiedProperties.fontName);
+                        }
+                        node[prop] = copiedProperties[prop];
+                    }
+                }
+            }
+            figma.notify(`Estilos pegados en ${selection.length} objeto(s)! ✨`);
+        }
+    } catch (error) {
+        figma.notify('Hubo un error: ' + error.message);
     }
 });

@@ -1,475 +1,181 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>CopyKit</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-
-    body {
-      font-family: 'Inter', sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #fff;
-      color: #222;
-      min-width: 224px;
-      min-height: 336px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      position: relative;
-    }
-
-    /* Switch */
-    .theme-switch-wrapper {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 100;
-    }
-
-    .theme-switch {
-      position: relative;
-      display: inline-block;
-      width: 38px;
-      height: 20px;
-    }
-
-    .theme-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      border-radius: 20px;
-      transition: 0.3s;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 14px;
-      width: 14px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      border-radius: 50%;
-      transition: 0.3s;
-    }
-
-    input:checked + .slider {
-      background-color: #4ade80;
-    }
-
-    input:checked + .slider:before {
-      transform: translateX(18px);
-    }
-
-    /* Text color control */
-    .text-primary {
-      color: #222;
-    }
-
-    .text-muted {
-      color: #888;
-    }
-
-    .header {
-      margin-top: 20px;
-      text-align: center;
-    }
-
-    .logo {
-      font-size: 19px;
-      font-weight: 700;
-      margin-bottom: 2px;
-      letter-spacing: -1px;
-    }
-
-    .logo .blue { color: #3B82F6; }
-    .logo .green { color: #10B981; }
-
-    .subtitle {
-      font-size: 13px;
-      margin-bottom: 12px;
-      font-weight: 400;
-    }
-
-    .card {
-      background: #f5f5f5;
-      border-radius: 13px;
-      padding: 14px 12px 12px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      width: 100%;
-      max-width: 250px;
-      margin-bottom: 12px;
-    }
-
-    .checkbox-group {
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-    }
-
-    .custom-checkbox {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 10px;
-      font-weight: 500;
-    }
-
-    .custom-checkbox input[type="checkbox"] {
-      display: none;
-    }
-
-
-    .lang-switch {
-      position: absolute;
-      top: 10px;
-      right: 12px;
-      font-size: 11px;
-      font-weight: 600;
-      color: #888;
-      user-select: none;
-    }
-
-    .lang-option {
-      cursor: pointer;
-      padding: 2px 4px;
-    }
-
-    .lang-option.active {
-      color: #10B981;
-      text-decoration: underline;
-    }
-
-    .custom-checkbox .checkmark {
-      width: 12px;
-      height: 12px;
-      border: 2px solid #000000;
-      border-radius: 4px;
-      background-color: #f5f5f5;
-      position: relative;
-      display: inline-block;
-      flex-shrink: 0;
-      transition: all 0.2s ease;
-    }
-
-    .custom-checkbox input[type="checkbox"]:checked + .checkmark::after {
-      content: '';
-      position: absolute;
-      top: 45%;
-      left: 50%;
-      width: 2px;
-      height: 5px;
-      border: solid #000000;
-      border-width: 0 2px 2px 0;
-      transform: translate(-50%, -50%) rotate(45deg);
-    }
-
-    .custom-checkbox span:not(.checkmark) {
-      font-weight: 700;
-    }
-
-    .custom-checkbox small {
-      font-weight: 400;
-      margin-left: 2px;
-      font-size: 11px;
-    }
-
-    .button-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    button {
-      width: 100%;
-      padding: 10px 0;
-      border: none;
-      border-radius: 25px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: background 0.2s;
-    }
-
-    #copy {
-      background: #3B82F6;
-      color: #fff;
-    }
-
-    #copy:hover {
-      background: #2563EB;
-    }
-
-    #paste {
-      background: #10B981;
-      color: #fff;
-    }
-
-    #paste:hover {
-      background: #059669;
-    }
-
-    .small {
-      font-size: 10px;
-      text-align: center;
-      margin-top: 6px;
-      margin-bottom: 0;
-    }
-
-    .footer {
-      font-size: 9.5px;
-      text-align: center;
-      margin-top: 30px;
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-    }
-
-    .footer .heart {
-      font-size: 11px;
-    }
-
-    .fa-solid {
-      font-size: 15px;
-      margin-right: 4px;
-    }
-
-    /* 🌙 Modo noche — cambios de color */
-    body.dark {
-      background: #121212;
-      color: #e0e0e0;
-    }
-
-    body.dark .card {
-      background: #1f1f1f;
-    }
-
-    body.dark .custom-checkbox .checkmark {
-      border-color: #ccc;
-      background-color: #2a2a2a;
-    }
-
-    body.dark .custom-checkbox input[type="checkbox"]:checked + .checkmark::after {
-      border-color: #ffffff;
-    }
-
-    body.dark button#copy {
-      background: #2563EB;
-    }
-
-    body.dark button#copy:hover {
-      background: #1d4ed8;
-    }
-
-    body.dark button#paste {
-      background: #059669;
-    }
-
-    body.dark button#paste:hover {
-      background: #047857;
-    }
-
-    body.dark .logo .blue {
-      color: #60a5fa;
-    }
-
-    body.dark .logo .green {
-      color: #34d399;
-    }
-
-    body.dark .text-primary {
-      color: #e0e0e0;
-    }
-
-    body.dark .text-muted {
-      color: #aaa;
-    }
-
-    @media (max-width: 300px) {
-      .card { max-width: 98vw; }
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <title>CopyKit</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #222; min-width: 224px; min-height: 336px; display: flex; flex-direction: column; align-items: center; position: relative; }
+        .theme-switch-wrapper { position: absolute; top: 10px; left: 10px; z-index: 100; }
+        .theme-switch { position: relative; display: inline-block; width: 38px; height: 20px; }
+        .theme-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 20px; transition: 0.3s; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: 0.3s; }
+        input:checked + .slider { background-color: #4ade80; }
+        input:checked + .slider:before { transform: translateX(18px); }
+        .text-primary { color: #222; }
+        .text-muted { color: #888; }
+        .header { margin-top: 20px; text-align: center; }
+        .logo { font-size: 19px; font-weight: 700; margin-bottom: 2px; letter-spacing: -1px; }
+        .logo .blue { color: #3B82F6; }
+        .logo .green { color: #10B981; }
+        .subtitle { font-size: 13px; margin-bottom: 12px; font-weight: 400; }
+        .card { background: #f5f5f5; border-radius: 13px; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 250px; margin-bottom: 12px; }
+        .checkbox-group { display: flex; flex-direction: column; gap: 7px; }
+        .custom-checkbox { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 500; cursor: pointer; }
+        .custom-checkbox input[type="checkbox"] { display: none; }
+        .lang-switch { position: absolute; top: 10px; right: 12px; font-size: 11px; font-weight: 600; color: #888; user-select: none; }
+        .lang-option { cursor: pointer; padding: 2px 4px; }
+        .lang-option.active { color: #10B981; text-decoration: underline; }
+        .custom-checkbox .checkmark { width: 12px; height: 12px; border: 2px solid #000000; border-radius: 4px; background-color: #f5f5f5; position: relative; display: inline-block; flex-shrink: 0; }
+        .custom-checkbox input[type="checkbox"]:checked + .checkmark::after { content: ''; position: absolute; top: 45%; left: 50%; width: 2px; height: 5px; border: solid #000; border-width: 0 2px 2px 0; transform: translate(-50%, -50%) rotate(45deg); }
+        .custom-checkbox span:not(.checkmark) { font-weight: 700; }
+        .custom-checkbox small { font-weight: 400; margin-left: 2px; font-size: 11px; }
+        .button-group { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+        button { width: 100%; padding: 10px 0; border: none; border-radius: 25px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        #copy { background: #3B82F6; color: #fff; }
+        #copy:hover { background: #2563EB; }
+        #paste { background: #10B981; color: #fff; }
+        #paste:hover { background: #059669; }
+        .small { font-size: 10px; text-align: center; margin-top: 6px; }
+        .footer { font-size: 9.5px; text-align: center; margin-top: 30px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 3px; }
+        .footer .heart { font-size: 11px; }
+        body.dark { background: #121212; color: #e0e0e0; }
+        body.dark .card { background: #1f1f1f; }
+        body.dark .custom-checkbox .checkmark { border-color: #ccc; background-color: #2a2a2a; }
+        body.dark .custom-checkbox input[type="checkbox"]:checked + .checkmark::after { border-color: #fff; }
+        body.dark .text-primary { color: #e0e0e0; }
+        body.dark .text-muted { color: #aaa; }
+    </style>
 </head>
 <body>
-  <!-- 🌙 Switch modo oscuro -->
-  <div class="theme-switch-wrapper">
-    <label class="theme-switch">
-      <input type="checkbox" id="dark-toggle">
-      <span class="slider"></span>
-    </label>
-  </div>
-
-  <div class="header">
-    <div class="logo text-primary">
-      <span class="blue">Copy</span><span class="green">Kit</span>
+    <div class="theme-switch-wrapper">
+        <label class="theme-switch">
+            <input type="checkbox" id="dark-toggle">
+            <span class="slider"></span>
+        </label>
     </div>
-    <div class="subtitle text-primary">Duplica estilos con un clic</div>
-  </div>
-
-  <div class="card">
-    <div class="checkbox-group">
-      <label class="custom-checkbox text-primary">
-        <input type="checkbox" id="style" checked>
-        <span class="checkmark"></span>
-        <span>Estilos visuales</span>
-        <small class="text-muted">(relleno, borde, efectos)</small>
-      </label>
-      <label class="custom-checkbox text-primary">
-        <input type="checkbox" id="layout" checked>
-        <span class="checkmark"></span>
-        <span>Layout</span>
-        <small class="text-muted">(padding, spacing)</small>
-      </label>
-      <label class="custom-checkbox text-primary">
-        <input type="checkbox" id="text" checked>
-        <span class="checkmark"></span>
-        <span>Estilos de texto</span>
-      </label>
-      <label class="custom-checkbox text-primary">
-        <input type="checkbox" id="autoWrap" checked>
-        <span class="checkmark"></span>
-        <span>Aplicar Auto Layout</span>
-        <small class="text-muted">(si es necesario)</small>
-      </label>
+    <div class="lang-switch">
+        <span id="lang-es" class="lang-option">ES</span> |
+        <span id="lang-en" class="lang-option">EN</span>
     </div>
-    <div class="button-group">
-      <button id="copy">
-        <i class="fa-regular fa-copy"></i>
-        Copiar estilos
-      </button>
-      <button id="paste">
-        <i class="fa-regular fa-paste"></i>
-        Pegar estilos
-      </button>
+    <div class="header">
+        <div class="logo text-primary"><span class="blue">Copy</span><span class="green">Kit</span></div>
+        <div class="subtitle text-primary">Duplica estilos con un clic</div>
     </div>
-  </div>
+    <div class="card">
+        <div class="checkbox-group">
+            <label class="custom-checkbox text-primary">
+                <input type="checkbox" id="style" checked><span class="checkmark"></span><span>Estilos visuales</span>
+                <small class="text-muted">(relleno, borde, efectos)</small>
+            </label>
+            <label class="custom-checkbox text-primary">
+                <input type="checkbox" id="layout" checked><span class="checkmark"></span><span>Layout</span>
+                <small class="text-muted">(padding, spacing)</small>
+            </label>
+            <label class="custom-checkbox text-primary">
+                <input type="checkbox" id="text" checked><span class="checkmark"></span><span>Estilos de texto</span>
+            </label>
+            <label class="custom-checkbox text-primary">
+                <input type="checkbox" id="autoWrap" checked><span class="checkmark"></span><span>Aplicar Auto Layout</span>
+                <small class="text-muted">(si es necesario)</small>
+            </label>
+        </div>
+        <div class="button-group">
+            <button id="copy"><i class="fa-regular fa-copy"></i> Copiar estilos</button>
+            <button id="paste"><i class="fa-regular fa-paste"></i> Pegar estilos</button>
+        </div>
+    </div>
+    <div class="small text-muted">*Selecciona un nodo para copiar o aplicar estilos</div>
+    <div class="footer text-muted">Una solución nacida del caos visual <i class="fa-solid fa-heart heart"></i></div>
 
-  <div class="small text-muted">
-    *Selecciona un nodo para copiar o aplicar estilos
-  </div>
+    <script>
+        const getOptions = () => ({
+            copyStyle: document.getElementById('style').checked,
+            copyLayout: document.getElementById('layout').checked,
+            copyText: document.getElementById('text').checked,
+            autoWrap: document.getElementById('autoWrap').checked
+        });
 
-  <div class="footer text-muted">
-    Una solución nacida del caos visual <i class="fa-solid fa-heart heart"></i>
-  </div>
+        const postMessage = (message) => {
+            parent.postMessage({ pluginMessage: message }, '*');
+        };
 
-  <!-- 🌐 Switch de idioma -->
-  <div class="lang-switch">
-    <span id="lang-es" class="lang-option active">ES</span> |
-    <span id="lang-en" class="lang-option">EN</span>
-  </div>
+        document.getElementById('copy').onclick = () => {
+            postMessage({ type: 'copy', ...getOptions() });
+        };
 
-  <script>
-    const getOptions = () => {
-      return {
-        copyStyle: document.getElementById('style').checked,
-        copyLayout: document.getElementById('layout').checked,
-        copyText: document.getElementById('text').checked,
-        autoWrap: document.getElementById('autoWrap').checked
-      };
-    };
+        document.getElementById('paste').onclick = () => {
+            postMessage({ type: 'paste', ...getOptions() });
+        };
 
-    document.getElementById('copy').onclick = () => {
-      parent.postMessage({ pluginMessage: { type: 'copy', ...getOptions() } }, '*');
-    };
+        const checkboxes = ['style', 'layout', 'text', 'autoWrap'];
+        checkboxes.forEach(id => {
+            const checkbox = document.getElementById(id);
+            checkbox.addEventListener('change', () => {
+                postMessage({ type: 'saveCheckbox', key: id, value: checkbox.checked });
+            });
+        });
 
-    document.getElementById('paste').onclick = () => {
-      parent.postMessage({ pluginMessage: { type: 'paste', ...getOptions() } }, '*');
-    };
+        const toggleSwitch = document.getElementById('dark-toggle');
+        toggleSwitch.addEventListener('change', () => {
+            const isDark = document.body.classList.toggle('dark');
+            postMessage({ type: 'saveTheme', value: isDark ? 'dark' : 'light' });
+        });
 
-    const toggleSwitch = document.getElementById('dark-toggle');
-    toggleSwitch.addEventListener('change', () => {
-      document.body.classList.toggle('dark');
-    });
+        const translations = {
+            es: { subtitle: 'Duplica estilos con un clic', copy: 'Copiar estilos', paste: 'Pegar estilos', visual: 'Estilos visuales', visualSmall: '(relleno, borde, efectos)', layout: 'Layout', layoutSmall: '(padding, spacing)', text: 'Estilos de texto', auto: 'Aplicar Auto Layout', autoSmall: '(si es necesario)', hint: '*Selecciona un nodo para copiar o aplicar estilos', footer: 'Una solución nacida del caos visual' },
+            en: { subtitle: 'Duplicate styles with one click', copy: 'Copy styles', paste: 'Paste styles', visual: 'Visual styles', visualSmall: '(fill, border, effects)', layout: 'Layout', layoutSmall: '(padding, spacing)', text: 'Text styles', auto: 'Apply Auto Layout', autoSmall: '(if needed)', hint: '*Select a node to copy or apply styles', footer: 'A solution born from visual chaos' }
+        };
 
-     // Traducciones
-  const translations = {
-    es: {
-      subtitle: 'Duplica estilos con un clic',
-      copy: 'Copiar estilos',
-      paste: 'Pegar estilos',
-      visual: 'Estilos visuales',
-      visualSmall: '(relleno, borde, efectos)',
-      layout: 'Layout',
-      layoutSmall: '(padding, spacing)',
-      text: 'Estilos de texto',
-      auto: 'Aplicar Auto Layout',
-      autoSmall: '(si es necesario)',
-      hint: '*Selecciona un nodo para copiar o aplicar estilos',
-      footer: 'Una solución nacida del caos visual'
-    },
-    en: {
-      subtitle: 'Duplicate styles with one click',
-      copy: 'Copy styles',
-      paste: 'Paste styles',
-      visual: 'Visual styles',
-      visualSmall: '(fill, border, effects)',
-      layout: 'Layout',
-      layoutSmall: '(padding, spacing)',
-      text: 'Text styles',
-      auto: 'Apply Auto Layout',
-      autoSmall: '(if needed)',
-      hint: '*Select a node to copy or apply styles',
-      footer: 'A solution born from visual chaos'
-    }
-  };
+        function changeLanguage(lang) {
+            const t = translations[lang];
+            document.querySelector('.subtitle').textContent = t.subtitle;
+            document.getElementById('copy').innerHTML = `<i class="fa-regular fa-copy"></i> ${t.copy}`;
+            document.getElementById('paste').innerHTML = `<i class="fa-regular fa-paste"></i> ${t.paste}`;
+            const checkboxLabels = { style: [t.visual, t.visualSmall], layout: [t.layout, t.layoutSmall], text: [t.text, ''], autoWrap: [t.auto, t.autoSmall] };
+            for (let id in checkboxLabels) {
+                const label = document.getElementById(id).parentElement;
+                label.querySelector('span:not(.checkmark)').textContent = checkboxLabels[id][0];
+                if (label.querySelector('small')) {
+                    label.querySelector('small').textContent = checkboxLabels[id][1];
+                }
+            }
+            document.querySelector('.small').textContent = t.hint;
+            document.querySelector('.footer').innerHTML = `${t.footer} <i class="fa-solid fa-heart heart"></i>`;
+            document.querySelectorAll('.lang-option').forEach(el => el.classList.remove('active'));
+            document.getElementById(`lang-${lang}`).classList.add('active');
+        }
 
-  function changeLanguage(lang) {
-    const t = translations[lang];
-    document.querySelector('.subtitle').textContent = t.subtitle;
-    document.getElementById('copy').innerHTML = `<i class="fa-regular fa-copy"></i> ${t.copy}`;
-    document.getElementById('paste').innerHTML = `<i class="fa-regular fa-paste"></i> ${t.paste}`;
+        document.getElementById('lang-es').addEventListener('click', () => {
+            changeLanguage('es');
+            postMessage({ type: 'saveLanguage', value: 'es' });
+        });
+        document.getElementById('lang-en').addEventListener('click', () => {
+            changeLanguage('en');
+            postMessage({ type: 'saveLanguage', value: 'en' });
+        });
 
-    const checkboxes = {
-      'style': [t.visual, t.visualSmall],
-      'layout': [t.layout, t.layoutSmall],
-      'text': [t.text],
-      'autoWrap': [t.auto, t.autoSmall]
-    };
+        onmessage = (event) => {
+            const msg = event.data.pluginMessage;
+            if (msg.type === 'preferencesLoaded') {
+                const { preferences } = msg;
+                if (preferences.theme === 'dark') {
+                    document.body.classList.add('dark');
+                    toggleSwitch.checked = true;
+                }
+                changeLanguage(preferences.language || 'es');
+                checkboxes.forEach(key => {
+                    if (preferences[key] !== undefined) {
+                        document.getElementById(key).checked = preferences[key];
+                    }
+                });
+            }
+        };
 
-    for (let id in checkboxes) {
-      const label = document.querySelector(`label[for="${id}"]`) || document.getElementById(id)?.parentElement;
-      if (label) {
-        const spans = label.querySelectorAll('span');
-        const small = label.querySelector('small');
-        if (spans[1]) spans[1].textContent = checkboxes[id][0];
-        if (small && checkboxes[id][1]) small.textContent = checkboxes[id][1];
-      }
-    }
-
-    document.querySelector('.small').textContent = t.hint;
-    document.querySelector('.footer').innerHTML = `${t.footer} <i class="fa-solid fa-heart heart"></i>`;
-
-    document.querySelectorAll('.lang-option').forEach(el => el.classList.remove('active'));
-    document.getElementById(`lang-${lang}`).classList.add('active');
-  }
-
-  // Listeners
-  document.getElementById('lang-es').addEventListener('click', () => changeLanguage('es'));
-  document.getElementById('lang-en').addEventListener('click', () => changeLanguage('en'));
-
-
-  </script>
+        postMessage({ type: 'loadPreferences' });
+    </script>
 </body>
 </html>

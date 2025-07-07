@@ -43,8 +43,8 @@ var _this = this;
 // Variables globales para almacenar estilos
 var copiedProperties = null;
 
-// Mostrar la Interfaz de Usuario (UI)
-figma.showUI(__html__, { width: 320, height: 390 });
+// Mostrar la Interfaz de Usuario (UI) - Altura aumentada para el nuevo checkbox
+figma.showUI(__html__, { width: 320, height: 420 });
 
 // Función para clonar propiedades complejas y evitar errores de "solo lectura"
 function clone(val) {
@@ -68,14 +68,15 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
             return;
         }
         if (msg.type === 'loadPreferences') {
-            const [theme, style, layout, text, autoWrap, language] = yield Promise.all([
+            const [theme, style, layout, size, text, autoWrap, language] = yield Promise.all([
                 figma.clientStorage.getAsync('theme'), figma.clientStorage.getAsync('style'),
-                figma.clientStorage.getAsync('layout'), figma.clientStorage.getAsync('text'),
+                figma.clientStorage.getAsync('layout'), figma.clientStorage.getAsync('size'), // Cargar preferencia de tamaño
+                figma.clientStorage.getAsync('text'),
                 figma.clientStorage.getAsync('autoWrap'), figma.clientStorage.getAsync('language')
             ]);
             figma.ui.postMessage({
                 type: 'preferencesLoaded',
-                preferences: { theme, style, layout, text, autoWrap, language }
+                preferences: { theme, style, layout, size, text, autoWrap, language } // Enviar preferencia de tamaño
             });
             return;
         }
@@ -100,21 +101,28 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
             }
 
             // Copiar layout
-            if (msg.copyLayout && "paddingLeft" in node) {
-                 copiedProperties.paddingLeft = node.paddingLeft;
-                 copiedProperties.paddingRight = node.paddingRight;
-                 copiedProperties.paddingTop = node.paddingTop;
-                 copiedProperties.paddingBottom = node.paddingBottom;
-                 copiedProperties.itemSpacing = node.itemSpacing;
+            if (msg.copyLayout) {
+                 if ("paddingLeft" in node) {
+                    copiedProperties.paddingLeft = node.paddingLeft;
+                    copiedProperties.paddingRight = node.paddingRight;
+                    copiedProperties.paddingTop = node.paddingTop;
+                    copiedProperties.paddingBottom = node.paddingBottom;
+                    copiedProperties.itemSpacing = node.itemSpacing;
+                }
+                if ("cornerRadius" in node) {
+                    copiedProperties.cornerRadius = node.cornerRadius;
+                }
             }
             
-            if ("cornerRadius" in node) {
-                copiedProperties.cornerRadius = node.cornerRadius;
+            // Copiar Tamaño (ancho y alto)
+            if (msg.copySize && "resize" in node) {
+                copiedProperties.width = node.width;
+                copiedProperties.height = node.height;
             }
-
 
             // Copiar estilos de texto
             if (msg.copyText && node.type === 'TEXT') {
+                yield figma.loadFontAsync(node.fontName); // Cargar fuente antes de copiar
                 copiedProperties.fontName = clone(node.fontName);
                 copiedProperties.fontSize = node.fontSize;
                 copiedProperties.letterSpacing = clone(node.letterSpacing);
@@ -149,8 +157,16 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                     node.layoutMode = "VERTICAL";
                 }
 
-                // Aplicar estilos
+                // Aplicar Tamaño (ancho y alto) si fue copiado
+                if (copiedProperties.width !== undefined && copiedProperties.height !== undefined && "resize" in node) {
+                    node.resize(copiedProperties.width, copiedProperties.height);
+                }
+
+                // Aplicar otros estilos
                 for (const prop in copiedProperties) {
+                    // Evitar re-aplicar width y height o autoWrap que no es una propiedad de nodo
+                    if (prop === 'width' || prop === 'height' || prop === 'autoWrap') continue;
+
                     if (prop in node) {
                         // Cargar fuente antes de aplicarla
                         if (prop === 'fontName') {

@@ -114,6 +114,7 @@ figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, fu
                     textCase: textNode.textCase,
                     textDecoration: textNode.textDecoration,
                     fills: fills,
+                    textStyleId: textNode.textStyleId
                 };
                 copiedStyles = {
                     layoutMode: node.layoutMode,
@@ -205,6 +206,7 @@ figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, fu
                     textCase: node.textCase,
                     textDecoration: node.textDecoration,
                     fills: fills,
+                    textStyleId: node.textStyleId
                 };
                 _d.label = 14;
             case 14:
@@ -241,11 +243,9 @@ figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, fu
                 return [4 /*yield*/, figma.loadFontAsync(copiedTextStyles.fontName)];
             case 17:
                 _d.sent();
-                // Remover el nodo de su padre antes de añadirlo al frame
                 if (parent_1)
                     parent_1.removeChild(node);
                 frame.appendChild(node);
-                // Añadir el frame al padre original
                 if (parent_1)
                     parent_1.appendChild(frame);
                 if (msg.copyText && copiedTextStyles) {
@@ -256,22 +256,20 @@ figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, fu
                     node.textCase = copiedTextStyles.textCase;
                     node.textDecoration = copiedTextStyles.textDecoration;
                     node.fills = copiedTextStyles.fills;
+                    if (copiedTextStyles.textStyleId) {
+                        node.textStyleId = copiedTextStyles.textStyleId;
+                    }
                 }
                 figma.notify("Auto Layout aplicado sobre texto");
                 return [3 /*break*/, 20];
             case 18:
-                // Aplicar estilos visuales normales
                 if (msg.copyStyle && copiedStyles && "fills" in node) {
-                    // Reemplazar fills
                     node.fills = clone(copiedStyles.fills);
-                    // Reemplazar strokes y strokeWeight
                     node.strokes = clone(copiedStyles.strokes);
-                    // Si el nodo copiado tiene strokeWeight, reemplazarlo (para RECTANGLE, FRAME, etc.)
                     if ("strokeWeight" in copiedStyles && "strokeWeight" in node) {
                         node.strokeWeight = copiedStyles.strokeWeight;
                     }
                     else if ("strokes" in copiedStyles && copiedStyles.strokes.length > 0 && "strokeWeight" in node) {
-                        // Si el nodo copiado tiene strokes, pero no strokeWeight explícito, intenta copiar el del nodo copiado
                         if ("strokeWeight" in node && "strokeWeight" in copiedStyles) {
                             node.strokeWeight = copiedStyles.strokeWeight;
                         }
@@ -279,12 +277,9 @@ figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, fu
                             node.strokeWeight = copiedStyles.strokes[0].strokeWeight || node.strokeWeight;
                         }
                     }
-                    // Reemplazar cornerRadius si aplica
                     if ("cornerRadius" in node && copiedStyles.cornerRadius !== null)
                         node.cornerRadius = copiedStyles.cornerRadius;
-                    // Reemplazar efectos
                     node.effects = clone(copiedStyles.effects);
-                    // Reemplazar layout si corresponde
                     if ("layoutMode" in node && copiedStyles.layoutMode !== null && msg.copyLayout) {
                         node.layoutMode = copiedStyles.layoutMode;
                         node.paddingLeft = copiedStyles.paddingLeft;
@@ -305,6 +300,9 @@ figma.ui.onmessage = function (msg) { return __awaiter(_this, void 0, void 0, fu
                 node.textCase = copiedTextStyles.textCase;
                 node.textDecoration = copiedTextStyles.textDecoration;
                 node.fills = copiedTextStyles.fills;
+                if (copiedTextStyles.textStyleId) {
+                    node.textStyleId = copiedTextStyles.textStyleId;
+                }
                 _d.label = 20;
             case 20:
                 _i++;

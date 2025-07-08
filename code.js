@@ -43,7 +43,7 @@ var _this = this;
 // Variables globales para almacenar estilos
 var copiedProperties = null;
 
-// Mostrar la Interfaz de Usuario (UI) - Altura aumentada para el nuevo checkbox
+// Mostrar la Interfaz de Usuario (UI)
 figma.showUI(__html__, { width: 320, height: 420 });
 
 // Función para clonar propiedades complejas y evitar errores de "solo lectura"
@@ -54,7 +54,7 @@ function clone(val) {
 // Manejador de mensajes unificado
 figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
     try {
-        // --- GUARDAR Y CARGAR PREFERENCIAS ---
+        // --- GUARDAR Y CARGAR PREFERENCIAS (Sin cambios) ---
         if (msg.type === 'saveTheme') {
             yield figma.clientStorage.setAsync('theme', msg.value);
             return;
@@ -70,13 +70,13 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
         if (msg.type === 'loadPreferences') {
             const [theme, style, layout, size, text, autoWrap, language] = yield Promise.all([
                 figma.clientStorage.getAsync('theme'), figma.clientStorage.getAsync('style'),
-                figma.clientStorage.getAsync('layout'), figma.clientStorage.getAsync('size'), // Cargar preferencia de tamaño
+                figma.clientStorage.getAsync('layout'), figma.clientStorage.getAsync('size'),
                 figma.clientStorage.getAsync('text'),
                 figma.clientStorage.getAsync('autoWrap'), figma.clientStorage.getAsync('language')
             ]);
             figma.ui.postMessage({
                 type: 'preferencesLoaded',
-                preferences: { theme, style, layout, size, text, autoWrap, language } // Enviar preferencia de tamaño
+                preferences: { theme, style, layout, size, text, autoWrap, language }
             });
             return;
         }
@@ -89,18 +89,25 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                 return;
             }
 
-            copiedProperties = {}; // Reset
+            copiedProperties = {};
 
-            // Copiar estilos visuales
-            if (msg.copyStyle) {
-                copiedProperties.fills = clone(node.fills);
-                copiedProperties.strokes = clone(node.strokes);
-                copiedProperties.strokeWeight = node.strokeWeight;
-                copiedProperties.strokeAlign = node.strokeAlign;
-                copiedProperties.effects = clone(node.effects);
+            let textNodeToCopyFrom = null;
+            if (node.type === 'TEXT') {
+                textNodeToCopyFrom = node;
+            } else if (typeof node.findOne === 'function') {
+                textNodeToCopyFrom = node.findOne(n => n.type === 'TEXT');
             }
 
-            // Copiar layout
+            if (msg.copyStyle) {
+                if ('fills' in node) copiedProperties.fills = clone(node.fills);
+                if ('strokes' in node) copiedProperties.strokes = clone(node.strokes);
+                if ('strokeWeight' in node) copiedProperties.strokeWeight = node.strokeWeight;
+                if ('strokeAlign' in node) copiedProperties.strokeAlign = node.strokeAlign;
+                if ('effects' in node) copiedProperties.effects = clone(node.effects);
+                // ---- NUEVA LÍNEA PARA COPIAR LA OPACIDAD DE LA CAPA ----
+                if ('opacity' in node) copiedProperties.opacity = node.opacity;
+            }
+
             if (msg.copyLayout) {
                  if ("paddingLeft" in node) {
                     copiedProperties.paddingLeft = node.paddingLeft;
@@ -108,37 +115,36 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                     copiedProperties.paddingTop = node.paddingTop;
                     copiedProperties.paddingBottom = node.paddingBottom;
                     copiedProperties.itemSpacing = node.itemSpacing;
-                }
-                if ("cornerRadius" in node) {
-                    copiedProperties.cornerRadius = node.cornerRadius;
-                }
+                    copiedProperties.layoutMode = node.layoutMode;
+                 }
+                 if ("cornerRadius" in node) copiedProperties.cornerRadius = node.cornerRadius;
             }
             
-            // Copiar Tamaño (ancho y alto)
             if (msg.copySize && "resize" in node) {
                 copiedProperties.width = node.width;
                 copiedProperties.height = node.height;
             }
 
-            // Copiar estilos de texto
-            if (msg.copyText && node.type === 'TEXT') {
-                yield figma.loadFontAsync(node.fontName); // Cargar fuente antes de copiar
-                copiedProperties.fontName = clone(node.fontName);
-                copiedProperties.fontSize = node.fontSize;
-                copiedProperties.letterSpacing = clone(node.letterSpacing);
-                copiedProperties.lineHeight = clone(node.lineHeight);
-                copiedProperties.textAlignHorizontal = node.textAlignHorizontal;
-                copiedProperties.textAlignVertical = node.textAlignVertical;
-                copiedProperties.textCase = node.textCase;
-                copiedProperties.textDecoration = node.textDecoration;
+            if (msg.copyText && textNodeToCopyFrom) {
+                yield figma.loadFontAsync(textNodeToCopyFrom.fontName);
+                copiedProperties.textStyles = {
+                    fills: clone(textNodeToCopyFrom.fills),
+                    fontName: clone(textNodeToCopyFrom.fontName),
+                    fontSize: textNodeToCopyFrom.fontSize,
+                    letterSpacing: clone(textNodeToCopyFrom.letterSpacing),
+                    lineHeight: clone(textNodeToCopyFrom.lineHeight),
+                    textAlignHorizontal: textNodeToCopyFrom.textAlignHorizontal,
+                    textAlignVertical: textNodeToCopyFrom.textAlignVertical,
+                    textCase: textNodeToCopyFrom.textCase,
+                    textDecoration: textNodeToCopyFrom.textDecoration
+                };
             }
             
             copiedProperties.autoWrap = msg.autoWrap;
-
             figma.notify('Estilos copiados! ✅');
         }
 
-        // --- LÓGICA DE PEGAR ---
+        // --- LÓGICA DE PEGAR (Sin cambios, ya funciona) ---
         if (msg.type === 'paste') {
             if (!copiedProperties) {
                 figma.notify('No hay estilos copiados. Usa "Copiar" primero.');
@@ -151,28 +157,69 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                 return;
             }
 
-            for (const node of selection) {
-                // Aplicar Auto Layout si es necesario y está activado
-                if (copiedProperties.autoWrap && "paddingLeft" in copiedProperties && !("paddingLeft" in node)) {
-                    node.layoutMode = "VERTICAL";
+            for (const originalNode of selection) {
+                let containerNode = originalNode;
+                
+                let textNode = null;
+                if (originalNode.type === 'TEXT') {
+                    textNode = originalNode;
+                } else if (typeof originalNode.findOne === 'function') {
+                    textNode = originalNode.findOne(n => n.type === 'TEXT');
                 }
 
-                // Aplicar Tamaño (ancho y alto) si fue copiado
-                if (copiedProperties.width !== undefined && copiedProperties.height !== undefined && "resize" in node) {
-                    node.resize(copiedProperties.width, copiedProperties.height);
+                const needsWrapping = copiedProperties.autoWrap && "paddingLeft" in copiedProperties && !("layoutMode" in containerNode);
+                if (needsWrapping) {
+                    const frame = figma.createFrame();
+                    const parent = containerNode.parent;
+                    if (parent) {
+                        const index = parent.children.indexOf(containerNode);
+                        parent.insertChild(index, frame);
+                    }
+                    frame.x = containerNode.x;
+                    frame.y = containerNode.y;
+                    frame.layoutMode = copiedProperties.layoutMode || "HORIZONTAL";
+                    frame.primaryAxisSizingMode = 'AUTO';
+                    frame.counterAxisSizingMode = 'AUTO';
+                    frame.appendChild(containerNode);
+                    containerNode.x = 0;
+                    containerNode.y = 0;
+                    containerNode = frame;
                 }
+                
+                const containerStyles = Object.assign({}, copiedProperties);
+                delete containerStyles.textStyles;
+                delete containerStyles.autoWrap;
 
-                // Aplicar otros estilos
-                for (const prop in copiedProperties) {
-                    // Evitar re-aplicar width y height o autoWrap que no es una propiedad de nodo
-                    if (prop === 'width' || prop === 'height' || prop === 'autoWrap') continue;
-
-                    if (prop in node) {
-                        // Cargar fuente antes de aplicarla
-                        if (prop === 'fontName') {
-                            yield figma.loadFontAsync(copiedProperties.fontName);
+                for (const prop in containerStyles) {
+                    if (prop === 'width' || prop === 'height') continue;
+                    if (prop in containerNode) {
+                        try {
+                            containerNode[prop] = containerStyles[prop];
+                        } catch (e) {
+                            console.warn(`No se pudo aplicar la propiedad de contenedor '${prop}': ${e.message}`);
                         }
-                        node[prop] = copiedProperties[prop];
+                    }
+                }
+
+                if (copiedProperties.textStyles && textNode) {
+                    for (const prop in copiedProperties.textStyles) {
+                        if (prop in textNode) {
+                            try {
+                                if (prop === 'fontName') {
+                                    yield figma.loadFontAsync(copiedProperties.textStyles.fontName);
+                                }
+                                textNode[prop] = copiedProperties.textStyles[prop];
+                            } catch (e) {
+                                console.warn(`No se pudo aplicar la propiedad de texto '${prop}': ${e.message}`);
+                            }
+                        }
+                    }
+                }
+                
+                if (copiedProperties.width !== undefined && copiedProperties.height !== undefined && "resize" in containerNode) {
+                    const isAutoSized = 'primaryAxisSizingMode' in containerNode && (containerNode.primaryAxisSizingMode === 'AUTO' || containerNode.counterAxisSizingMode === 'AUTO');
+                    if (!isAutoSized) {
+                        containerNode.resize(copiedProperties.width, copiedProperties.height);
                     }
                 }
             }
@@ -180,5 +227,6 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
         }
     } catch (error) {
         figma.notify('Hubo un error: ' + error.message);
+        console.error('Error en el plugin:', error);
     }
 });

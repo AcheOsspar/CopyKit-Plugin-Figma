@@ -40,27 +40,24 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 
 var _this = this;
 var copiedProperties = null;
+var isQuickPasteActive = false;
+var selectionChangeHandler = null;
 
-figma.showUI(__html__, { width: 320, height: 420 });
+
+figma.showUI(__html__, { width: 380, height: 460 });
 
 function clone(val) {
-    if (val === undefined || val === figma.mixed) {
-        return val;
-    }
+    if (val === undefined || val === figma.mixed) { return val; }
     if (typeof val === 'object' && val !== null) {
-        try {
-            return JSON.parse(JSON.stringify(val));
-        } catch (e) {
-            console.error('No se pudo clonar el valor:', val, e);
-            return val;
-        }
+        try { return JSON.parse(JSON.stringify(val)); }
+        catch (e) { return val; }
     }
     return val;
 }
 
-function getStylesForNode(node, msg) {
+function getStylesForNode(node, options) {
     const styles = { nodeType: node.type };
-    if (msg.copyStyle) {
+    if (options.copyStyle) {
         if ('fills' in node) styles.fills = clone(node.fills);
         if ('strokes' in node) styles.strokes = clone(node.strokes);
         if ('strokeWeight' in node) styles.strokeWeight = node.strokeWeight;
@@ -68,52 +65,48 @@ function getStylesForNode(node, msg) {
         if ('effects' in node) styles.effects = clone(node.effects);
         if ('opacity' in node) styles.opacity = node.opacity;
     }
-    if (msg.copyLayout) {
-        if ("paddingLeft" in node) {
+    if (options.copyLayout) {
+        // ---- INICIO DE LA CORRECCIÓN ----
+        // Se copian las propiedades de alineación del contenedor
+        if ("layoutMode" in node && node.layoutMode !== "NONE") {
             styles.paddingLeft = node.paddingLeft; styles.paddingRight = node.paddingRight;
             styles.paddingTop = node.paddingTop; styles.paddingBottom = node.paddingBottom;
             styles.itemSpacing = node.itemSpacing; styles.layoutMode = node.layoutMode;
+            styles.primaryAxisAlignItems = node.primaryAxisAlignItems;
+            styles.counterAxisAlignItems = node.counterAxisAlignItems;
         }
-        
-        // ---- INICIO DE LA CORRECCIÓN ----
-        // Leemos las 4 propiedades de radio de esquina individuales.
+        // ---- FIN DE LA CORRECCIÓN ----
         if ('topLeftRadius' in node) styles.topLeftRadius = node.topLeftRadius;
         if ('topRightRadius' in node) styles.topRightRadius = node.topRightRadius;
         if ('bottomLeftRadius' in node) styles.bottomLeftRadius = node.bottomLeftRadius;
         if ('bottomRightRadius' in node) styles.bottomRightRadius = node.bottomRightRadius;
-        // ---- FIN DE LA CORRECCIÓN ----
-
         if ('layoutAlign' in node) styles.layoutAlign = node.layoutAlign;
         if ('layoutGrow' in node) styles.layoutGrow = node.layoutGrow;
         if ('layoutSizingHorizontal' in node) styles.layoutSizingHorizontal = node.layoutSizingHorizontal;
         if ('layoutSizingVertical' in node) styles.layoutSizingVertical = node.layoutSizingVertical;
     }
-    if (msg.copySize && "resize" in node) {
+    if (options.copySize && "resize" in node) {
         styles.width = node.width; styles.height = node.height;
     }
-    if (msg.copyText && node.type === 'TEXT') {
-        styles.fontName = clone(node.fontName);
-        styles.fontSize = clone(node.fontSize);
-        styles.letterSpacing = clone(node.letterSpacing);
-        styles.lineHeight = clone(node.lineHeight);
-        styles.textAlignHorizontal = node.textAlignHorizontal;
-        styles.textAlignVertical = node.textAlignVertical;
-        styles.textCase = clone(node.textCase);
-        styles.textDecoration = clone(node.textDecoration);
+    if (options.copyText && node.type === 'TEXT') {
+        styles.fontName = clone(node.fontName); styles.fontSize = clone(node.fontSize);
+        styles.letterSpacing = clone(node.letterSpacing); styles.lineHeight = clone(node.lineHeight);
+        styles.textAlignHorizontal = node.textAlignHorizontal; styles.textAlignVertical = node.textAlignVertical;
+        styles.textCase = clone(node.textCase); styles.textDecoration = clone(node.textDecoration);
     }
     return styles;
 }
 
-function deepCopyStyles(node, msg) {
+function deepCopyStyles(node, options) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (node.type === 'TEXT' && msg.copyText && node.fontName !== figma.mixed) {
+        if (node.type === 'TEXT' && options.copyText && node.fontName !== figma.mixed) {
             yield figma.loadFontAsync(node.fontName);
         }
-        const styles = getStylesForNode(node, msg);
+        const styles = getStylesForNode(node, options);
         if (node.children && typeof node.findOne === 'function') {
             styles.children = {};
             for (const child of node.children) {
-                styles.children[child.name] = yield deepCopyStyles(child, msg);
+                styles.children[child.name] = yield deepCopyStyles(child, options);
             }
         }
         return styles;
@@ -147,9 +140,7 @@ function deepApplyStyles(targetNode, styles) {
         if (newWidth !== undefined && newHeight !== undefined && 'resize' in targetNode) {
             try {
                 targetNode.resize(newWidth, newHeight);
-            } catch (e) {
-                // Falla silenciosamente
-            }
+            } catch (e) {}
         }
         
         if (styles.children && targetNode.children && typeof targetNode.findOne === 'function') {
@@ -162,30 +153,79 @@ function deepApplyStyles(targetNode, styles) {
     });
 }
 
+const quickPasteHandler = () => __awaiter(_this, void 0, void 0, function* () {
+    if (!isQuickPasteActive || !copiedProperties) return;
+
+    const selection = figma.currentPage.selection;
+    if (selection.length > 0) {
+        for (const originalNode of selection) {
+            let targetNode = originalNode;
+            const needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && !targetNode.layoutMode;
+            if (needsWrapping) {
+                const frame = figma.createFrame();
+                const parent = targetNode.parent;
+                if (parent) {
+                    const index = parent.children.indexOf(targetNode);
+                    parent.insertChild(index, frame);
+                }
+                frame.x = targetNode.x;
+                frame.y = targetNode.y;
+                
+                 // ---- INICIO DE LA CORRECCIÓN ----
+                // Se configura el frame con las reglas de layout ANTES de añadir el hijo
+                frame.layoutMode = copiedProperties.layoutMode || 'VERTICAL';
+                frame.primaryAxisAlignItems = copiedProperties.primaryAxisAlignItems || 'MIN';
+                frame.counterAxisAlignItems = copiedProperties.counterAxisAlignItems || 'MIN';
+                frame.itemSpacing = copiedProperties.itemSpacing || 0;
+                frame.paddingTop = copiedProperties.paddingTop || 0;
+                frame.paddingBottom = copiedProperties.paddingBottom || 0;
+                frame.paddingLeft = copiedProperties.paddingLeft || 0;
+                frame.paddingRight = copiedProperties.paddingRight || 0;
+                // ---- FIN DE LA CORRECCIÓN ----
+                
+                frame.appendChild(targetNode);
+                targetNode.x = 0;
+                targetNode.y = 0;
+                targetNode = frame;
+            }
+            yield deepApplyStyles(targetNode, copiedProperties);
+        }
+    }
+});
 
 figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
     try {
         if (msg.type.startsWith('save') || msg.type.startsWith('load')) {
-            if (msg.type === 'saveTheme') {
-                yield figma.clientStorage.setAsync('theme', msg.value);
-            }
-            if (msg.type === 'saveCheckbox') {
-                yield figma.clientStorage.setAsync(msg.key, msg.value);
-            }
-            if (msg.type === 'saveLanguage') {
-                yield figma.clientStorage.setAsync('language', msg.value);
-            }
+            if (msg.type === 'saveTheme') { yield figma.clientStorage.setAsync('theme', msg.value); }
+            if (msg.type === 'saveCheckbox') { yield figma.clientStorage.setAsync(msg.key, msg.value); }
+            if (msg.type === 'saveLanguage') { yield figma.clientStorage.setAsync('language', msg.value); }
             if (msg.type === 'loadPreferences') {
-                const [theme, style, layout, size, text, autoWrap, language] = yield Promise.all([
+                const prefs = yield Promise.all([
                     figma.clientStorage.getAsync('theme'), figma.clientStorage.getAsync('style'),
                     figma.clientStorage.getAsync('layout'), figma.clientStorage.getAsync('size'),
-                    figma.clientStorage.getAsync('text'),
-                    figma.clientStorage.getAsync('autoWrap'), figma.clientStorage.getAsync('language')
+                    figma.clientStorage.getAsync('text'), figma.clientStorage.getAsync('autoWrap'), figma.clientStorage.getAsync('language')
                 ]);
-                figma.ui.postMessage({ type: 'preferencesLoaded', preferences: { theme, style, layout, size, text, autoWrap, language } });
+                figma.ui.postMessage({ type: 'preferencesLoaded', preferences: { theme: prefs[0], style: prefs[1], layout: prefs[2], size: prefs[3], text: prefs[4], autoWrap: prefs[5], language: prefs[6] } });
             }
             return;
         }
+        
+        if (msg.type === 'toggleQuickPaste') {
+            isQuickPasteActive = msg.value;
+            if (isQuickPasteActive) {
+                if(selectionChangeHandler) selectionChangeHandler.dispose();
+                selectionChangeHandler = figma.on('selectionchange', quickPasteHandler);
+                figma.notify('Modo Gotero Activado 💧');
+            } else {
+                if (selectionChangeHandler) {
+                    selectionChangeHandler.dispose();
+                    selectionChangeHandler = null;
+                }
+                figma.notify('Modo Gotero Desactivado.');
+            }
+            return;
+        }
+
         const selection = figma.currentPage.selection;
         if (msg.type === 'copy') {
             if (selection.length === 0) {
@@ -193,7 +233,13 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                 return;
             }
             const node = selection[0];
-            copiedProperties = yield deepCopyStyles(node, msg);
+            const options = {
+                copyStyle: msg.copyStyle,
+                copyLayout: msg.copyLayout,
+                copySize: msg.copySize,
+                copyText: msg.copyText,
+            };
+            copiedProperties = yield deepCopyStyles(node, options);
             copiedProperties.autoWrap = msg.autoWrap;
             figma.notify('Estilos profundos copiados! ✅');
         }
@@ -218,6 +264,19 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                     }
                     frame.x = targetNode.x;
                     frame.y = targetNode.y;
+                    
+                    // ---- INICIO DE LA CORRECCIÓN ----
+                     // Se configura el frame con las reglas de layout ANTES de añadir el hijo
+                    frame.layoutMode = copiedProperties.layoutMode || 'VERTICAL';
+                    frame.primaryAxisAlignItems = copiedProperties.primaryAxisAlignItems || 'MIN';
+                    frame.counterAxisAlignItems = copiedProperties.counterAxisAlignItems || 'MIN';
+                    frame.itemSpacing = copiedProperties.itemSpacing || 0;
+                    frame.paddingTop = copiedProperties.paddingTop || 0;
+                    frame.paddingBottom = copiedProperties.paddingBottom || 0;
+                    frame.paddingLeft = copiedProperties.paddingLeft || 0;
+                    frame.paddingRight = copiedProperties.paddingRight || 0;
+                     // ---- FIN DE LA CORRECCIÓN ----
+                    
                     frame.appendChild(targetNode);
                     targetNode.x = 0;
                     targetNode.y = 0;

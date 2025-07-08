@@ -48,6 +48,23 @@
         body.dark .text-primary { color: var(--text-dark); }
         body.dark .text-muted { color: var(--muted-dark); }
         body.dark .lang-switch { color: var(--muted-dark); }
+
+        /* --- INICIO DE NUEVOS ESTILOS --- */
+        .quick-paste-wrapper {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        body.dark .quick-paste-wrapper {
+            border-top-color: #333;
+        }
+        /* --- FIN DE NUEVOS ESTILOS --- */
     </style>
 </head>
 <body>
@@ -93,7 +110,15 @@
             <button id="copy"><i class="fa-regular fa-copy"></i> <span data-translate="copy">Copiar estilos</span></button>
             <button id="paste"><i class="fa-regular fa-paste"></i> <span data-translate="paste">Pegar estilos</span></button>
         </div>
-    </div>
+        
+        <div class="quick-paste-wrapper text-primary">
+            <span data-translate="quickPaste">Modo Gotero</span>
+            <label class="theme-switch">
+                <input type="checkbox" id="quick-paste-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        </div>
 
     <div class="small text-muted" data-translate="hint">*Selecciona un nodo para copiar o aplicar estilos</div>
     <div class="footer text-muted" data-translate="footer">Una solución nacida del caos visual ❤️</div>
@@ -109,11 +134,15 @@
             autoWrap: document.getElementById('autoWrap').checked
         });
 
-        // --- Eventos de botones principales ---
         document.getElementById('copy').onclick = () => postMessage({ type: 'copy', ...getOptions() });
         document.getElementById('paste').onclick = () => postMessage({ type: 'paste' });
+        
+        // --- INICIO DE NUEVA LÓGICA DE UI ---
+        document.getElementById('quick-paste-toggle').onchange = (event) => {
+            postMessage({ type: 'toggleQuickPaste', value: event.target.checked });
+        };
+        // --- FIN DE NUEVA LÓGICA DE UI ---
 
-        // --- Manejo de Preferencias (Checkboxes, Tema, Idioma) ---
         const checkboxes = ['style', 'layout', 'size', 'text', 'autoWrap'];
         checkboxes.forEach(id => {
             const el = document.getElementById(id);
@@ -127,8 +156,8 @@
         };
 
         const translations = {
-            es: { subtitle: 'Duplica estilos con un clic', copy: 'Copiar estilos', paste: 'Pegar estilos', visual: 'Estilos visuales', visualSmall: '(relleno, borde, efectos)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Tamaño', sizeSmall: '(ancho, alto)', text: 'Estilos de texto', auto: 'Aplicar Auto Layout', autoSmall: '(si es necesario)', hint: '*Selecciona un nodo para copiar o aplicar estilos', footer: 'Una solución nacida del caos visual ❤️' },
-            en: { subtitle: 'Duplicate styles with one click', copy: 'Copy styles', paste: 'Paste styles', visual: 'Visual styles', visualSmall: '(fill, border, effects)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Size', sizeSmall: '(width, height)', text: 'Text styles', auto: 'Apply Auto Layout', autoSmall: '(if needed)', hint: '*Select a node to copy or apply styles', footer: 'A solution born from visual chaos ❤️' }
+            es: { subtitle: 'Duplica estilos con un clic', copy: 'Copiar estilos', paste: 'Pegar estilos', visual: 'Estilos visuales', visualSmall: '(relleno, borde, efectos)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Tamaño', sizeSmall: '(ancho, alto)', text: 'Estilos de texto', auto: 'Aplicar Auto Layout', autoSmall: '(si es necesario)', hint: '*Selecciona un nodo para copiar o aplicar estilos', footer: 'Una solución nacida del caos visual ❤️', quickPaste: 'Modo Gotero' },
+            en: { subtitle: 'Duplicate styles with one click', copy: 'Copy styles', paste: 'Paste styles', visual: 'Visual styles', visualSmall: '(fill, border, effects)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Size', sizeSmall: '(width, height)', text: 'Text styles', auto: 'Apply Auto Layout', autoSmall: '(if needed)', hint: '*Select a node to copy or apply styles', footer: 'A solution born from visual chaos ❤️', quickPaste: 'Eyedropper Mode' }
         };
 
         function setLanguage(lang) {
@@ -145,29 +174,21 @@
         document.getElementById('lang-es').onclick = () => { setLanguage('es'); postMessage({ type: 'saveLanguage', value: 'es' }); };
         document.getElementById('lang-en').onclick = () => { setLanguage('en'); postMessage({ type: 'saveLanguage', value: 'en' }); };
 
-        // --- Recibir datos desde el plugin ---
         onmessage = (event) => {
             const msg = event.data.pluginMessage;
             if (msg.type === 'preferencesLoaded') {
                 const { preferences } = msg;
-
-                // Aplicar tema (default: light)
                 if (preferences.theme === 'dark') {
                     document.body.classList.add('dark');
                     toggleSwitch.checked = true;
                 }
-
-                // Aplicar idioma (default: es)
                 setLanguage(preferences.language || 'es');
-
-                // Aplicar checkboxes (default: true)
                 checkboxes.forEach(key => {
                     document.getElementById(key).checked = preferences[key] !== undefined ? preferences[key] : true;
                 });
             }
         };
 
-        // Pedir las preferencias guardadas al iniciar
         postMessage({ type: 'loadPreferences' });
     </script>
 </body>

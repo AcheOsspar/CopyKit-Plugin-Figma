@@ -39,193 +39,196 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 
 var _this = this;
-
-// Variables globales para almacenar estilos
 var copiedProperties = null;
 
-// Mostrar la Interfaz de Usuario (UI)
 figma.showUI(__html__, { width: 320, height: 420 });
 
-// Función para clonar propiedades complejas y evitar errores de "solo lectura"
 function clone(val) {
-    return JSON.parse(JSON.stringify(val));
+    if (val === undefined || val === figma.mixed) {
+        return val;
+    }
+    if (typeof val === 'object' && val !== null) {
+        try {
+            return JSON.parse(JSON.stringify(val));
+        } catch (e) {
+            console.error('No se pudo clonar el valor:', val, e);
+            return val;
+        }
+    }
+    return val;
 }
 
-// Manejador de mensajes unificado
+function getStylesForNode(node, msg) {
+    const styles = { nodeType: node.type };
+    if (msg.copyStyle) {
+        if ('fills' in node) styles.fills = clone(node.fills);
+        if ('strokes' in node) styles.strokes = clone(node.strokes);
+        if ('strokeWeight' in node) styles.strokeWeight = node.strokeWeight;
+        if ('strokeAlign' in node) styles.strokeAlign = node.strokeAlign;
+        if ('effects' in node) styles.effects = clone(node.effects);
+        if ('opacity' in node) styles.opacity = node.opacity;
+    }
+    if (msg.copyLayout) {
+        if ("paddingLeft" in node) {
+            styles.paddingLeft = node.paddingLeft; styles.paddingRight = node.paddingRight;
+            styles.paddingTop = node.paddingTop; styles.paddingBottom = node.paddingBottom;
+            styles.itemSpacing = node.itemSpacing; styles.layoutMode = node.layoutMode;
+        }
+        
+        // ---- INICIO DE LA CORRECCIÓN ----
+        // Leemos las 4 propiedades de radio de esquina individuales.
+        if ('topLeftRadius' in node) styles.topLeftRadius = node.topLeftRadius;
+        if ('topRightRadius' in node) styles.topRightRadius = node.topRightRadius;
+        if ('bottomLeftRadius' in node) styles.bottomLeftRadius = node.bottomLeftRadius;
+        if ('bottomRightRadius' in node) styles.bottomRightRadius = node.bottomRightRadius;
+        // ---- FIN DE LA CORRECCIÓN ----
+
+        if ('layoutAlign' in node) styles.layoutAlign = node.layoutAlign;
+        if ('layoutGrow' in node) styles.layoutGrow = node.layoutGrow;
+        if ('layoutSizingHorizontal' in node) styles.layoutSizingHorizontal = node.layoutSizingHorizontal;
+        if ('layoutSizingVertical' in node) styles.layoutSizingVertical = node.layoutSizingVertical;
+    }
+    if (msg.copySize && "resize" in node) {
+        styles.width = node.width; styles.height = node.height;
+    }
+    if (msg.copyText && node.type === 'TEXT') {
+        styles.fontName = clone(node.fontName);
+        styles.fontSize = clone(node.fontSize);
+        styles.letterSpacing = clone(node.letterSpacing);
+        styles.lineHeight = clone(node.lineHeight);
+        styles.textAlignHorizontal = node.textAlignHorizontal;
+        styles.textAlignVertical = node.textAlignVertical;
+        styles.textCase = clone(node.textCase);
+        styles.textDecoration = clone(node.textDecoration);
+    }
+    return styles;
+}
+
+function deepCopyStyles(node, msg) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (node.type === 'TEXT' && msg.copyText && node.fontName !== figma.mixed) {
+            yield figma.loadFontAsync(node.fontName);
+        }
+        const styles = getStylesForNode(node, msg);
+        if (node.children && typeof node.findOne === 'function') {
+            styles.children = {};
+            for (const child of node.children) {
+                styles.children[child.name] = yield deepCopyStyles(child, msg);
+            }
+        }
+        return styles;
+    });
+}
+
+function deepApplyStyles(targetNode, styles) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const styleProps = Object.assign({}, styles);
+        delete styleProps.children;
+        delete styleProps.nodeType;
+        
+        const newWidth = styleProps.width;
+        const newHeight = styleProps.height;
+        delete styleProps.width;
+        delete styleProps.height;
+
+        for (const prop in styleProps) {
+            if (prop in targetNode) {
+                try {
+                    if (prop === 'fontName' && styleProps.fontName !== figma.mixed) {
+                        yield figma.loadFontAsync(styleProps.fontName);
+                    }
+                    targetNode[prop] = styleProps[prop];
+                } catch (e) {
+                    console.warn(`No se pudo aplicar la propiedad '${prop}' a ${targetNode.name}`);
+                }
+            }
+        }
+        
+        if (newWidth !== undefined && newHeight !== undefined && 'resize' in targetNode) {
+            try {
+                targetNode.resize(newWidth, newHeight);
+            } catch (e) {
+                // Falla silenciosamente
+            }
+        }
+        
+        if (styles.children && targetNode.children && typeof targetNode.findOne === 'function') {
+            for (const childNode of targetNode.children) {
+                if (styles.children[childNode.name]) {
+                    yield deepApplyStyles(childNode, styles.children[childNode.name]);
+                }
+            }
+        }
+    });
+}
+
+
 figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
     try {
-        // --- GUARDAR Y CARGAR PREFERENCIAS (Sin cambios) ---
-        if (msg.type === 'saveTheme') {
-            yield figma.clientStorage.setAsync('theme', msg.value);
+        if (msg.type.startsWith('save') || msg.type.startsWith('load')) {
+            if (msg.type === 'saveTheme') {
+                yield figma.clientStorage.setAsync('theme', msg.value);
+            }
+            if (msg.type === 'saveCheckbox') {
+                yield figma.clientStorage.setAsync(msg.key, msg.value);
+            }
+            if (msg.type === 'saveLanguage') {
+                yield figma.clientStorage.setAsync('language', msg.value);
+            }
+            if (msg.type === 'loadPreferences') {
+                const [theme, style, layout, size, text, autoWrap, language] = yield Promise.all([
+                    figma.clientStorage.getAsync('theme'), figma.clientStorage.getAsync('style'),
+                    figma.clientStorage.getAsync('layout'), figma.clientStorage.getAsync('size'),
+                    figma.clientStorage.getAsync('text'),
+                    figma.clientStorage.getAsync('autoWrap'), figma.clientStorage.getAsync('language')
+                ]);
+                figma.ui.postMessage({ type: 'preferencesLoaded', preferences: { theme, style, layout, size, text, autoWrap, language } });
+            }
             return;
         }
-        if (msg.type === 'saveCheckbox') {
-            yield figma.clientStorage.setAsync(msg.key, msg.value);
-            return;
-        }
-        if (msg.type === 'saveLanguage') {
-            yield figma.clientStorage.setAsync('language', msg.value);
-            return;
-        }
-        if (msg.type === 'loadPreferences') {
-            const [theme, style, layout, size, text, autoWrap, language] = yield Promise.all([
-                figma.clientStorage.getAsync('theme'), figma.clientStorage.getAsync('style'),
-                figma.clientStorage.getAsync('layout'), figma.clientStorage.getAsync('size'),
-                figma.clientStorage.getAsync('text'),
-                figma.clientStorage.getAsync('autoWrap'), figma.clientStorage.getAsync('language')
-            ]);
-            figma.ui.postMessage({
-                type: 'preferencesLoaded',
-                preferences: { theme, style, layout, size, text, autoWrap, language }
-            });
-            return;
-        }
-
-        // --- LÓGICA DE COPIAR ---
+        const selection = figma.currentPage.selection;
         if (msg.type === 'copy') {
-            const node = figma.currentPage.selection[0];
-            if (!node) {
+            if (selection.length === 0) {
                 figma.notify('Por favor, selecciona un objeto para copiar sus estilos.');
                 return;
             }
-
-            copiedProperties = {};
-
-            let textNodeToCopyFrom = null;
-            if (node.type === 'TEXT') {
-                textNodeToCopyFrom = node;
-            } else if (typeof node.findOne === 'function') {
-                textNodeToCopyFrom = node.findOne(n => n.type === 'TEXT');
-            }
-
-            if (msg.copyStyle) {
-                if ('fills' in node) copiedProperties.fills = clone(node.fills);
-                if ('strokes' in node) copiedProperties.strokes = clone(node.strokes);
-                if ('strokeWeight' in node) copiedProperties.strokeWeight = node.strokeWeight;
-                if ('strokeAlign' in node) copiedProperties.strokeAlign = node.strokeAlign;
-                if ('effects' in node) copiedProperties.effects = clone(node.effects);
-                // ---- NUEVA LÍNEA PARA COPIAR LA OPACIDAD DE LA CAPA ----
-                if ('opacity' in node) copiedProperties.opacity = node.opacity;
-            }
-
-            if (msg.copyLayout) {
-                 if ("paddingLeft" in node) {
-                    copiedProperties.paddingLeft = node.paddingLeft;
-                    copiedProperties.paddingRight = node.paddingRight;
-                    copiedProperties.paddingTop = node.paddingTop;
-                    copiedProperties.paddingBottom = node.paddingBottom;
-                    copiedProperties.itemSpacing = node.itemSpacing;
-                    copiedProperties.layoutMode = node.layoutMode;
-                 }
-                 if ("cornerRadius" in node) copiedProperties.cornerRadius = node.cornerRadius;
-            }
-            
-            if (msg.copySize && "resize" in node) {
-                copiedProperties.width = node.width;
-                copiedProperties.height = node.height;
-            }
-
-            if (msg.copyText && textNodeToCopyFrom) {
-                yield figma.loadFontAsync(textNodeToCopyFrom.fontName);
-                copiedProperties.textStyles = {
-                    fills: clone(textNodeToCopyFrom.fills),
-                    fontName: clone(textNodeToCopyFrom.fontName),
-                    fontSize: textNodeToCopyFrom.fontSize,
-                    letterSpacing: clone(textNodeToCopyFrom.letterSpacing),
-                    lineHeight: clone(textNodeToCopyFrom.lineHeight),
-                    textAlignHorizontal: textNodeToCopyFrom.textAlignHorizontal,
-                    textAlignVertical: textNodeToCopyFrom.textAlignVertical,
-                    textCase: textNodeToCopyFrom.textCase,
-                    textDecoration: textNodeToCopyFrom.textDecoration
-                };
-            }
-            
+            const node = selection[0];
+            copiedProperties = yield deepCopyStyles(node, msg);
             copiedProperties.autoWrap = msg.autoWrap;
-            figma.notify('Estilos copiados! ✅');
+            figma.notify('Estilos profundos copiados! ✅');
         }
-
-        // --- LÓGICA DE PEGAR (Sin cambios, ya funciona) ---
         if (msg.type === 'paste') {
             if (!copiedProperties) {
                 figma.notify('No hay estilos copiados. Usa "Copiar" primero.');
                 return;
             }
-
-            const selection = figma.currentPage.selection;
             if (selection.length === 0) {
                 figma.notify('Selecciona uno o más objetos para pegar los estilos.');
                 return;
             }
-
             for (const originalNode of selection) {
-                let containerNode = originalNode;
-                
-                let textNode = null;
-                if (originalNode.type === 'TEXT') {
-                    textNode = originalNode;
-                } else if (typeof originalNode.findOne === 'function') {
-                    textNode = originalNode.findOne(n => n.type === 'TEXT');
-                }
-
-                const needsWrapping = copiedProperties.autoWrap && "paddingLeft" in copiedProperties && !("layoutMode" in containerNode);
+                let targetNode = originalNode;
+                const needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && !targetNode.layoutMode;
                 if (needsWrapping) {
                     const frame = figma.createFrame();
-                    const parent = containerNode.parent;
+                    const parent = targetNode.parent;
                     if (parent) {
-                        const index = parent.children.indexOf(containerNode);
+                        const index = parent.children.indexOf(targetNode);
                         parent.insertChild(index, frame);
                     }
-                    frame.x = containerNode.x;
-                    frame.y = containerNode.y;
-                    frame.layoutMode = copiedProperties.layoutMode || "HORIZONTAL";
-                    frame.primaryAxisSizingMode = 'AUTO';
-                    frame.counterAxisSizingMode = 'AUTO';
-                    frame.appendChild(containerNode);
-                    containerNode.x = 0;
-                    containerNode.y = 0;
-                    containerNode = frame;
+                    frame.x = targetNode.x;
+                    frame.y = targetNode.y;
+                    frame.appendChild(targetNode);
+                    targetNode.x = 0;
+                    targetNode.y = 0;
+                    targetNode = frame;
                 }
-                
-                const containerStyles = Object.assign({}, copiedProperties);
-                delete containerStyles.textStyles;
-                delete containerStyles.autoWrap;
-
-                for (const prop in containerStyles) {
-                    if (prop === 'width' || prop === 'height') continue;
-                    if (prop in containerNode) {
-                        try {
-                            containerNode[prop] = containerStyles[prop];
-                        } catch (e) {
-                            console.warn(`No se pudo aplicar la propiedad de contenedor '${prop}': ${e.message}`);
-                        }
-                    }
-                }
-
-                if (copiedProperties.textStyles && textNode) {
-                    for (const prop in copiedProperties.textStyles) {
-                        if (prop in textNode) {
-                            try {
-                                if (prop === 'fontName') {
-                                    yield figma.loadFontAsync(copiedProperties.textStyles.fontName);
-                                }
-                                textNode[prop] = copiedProperties.textStyles[prop];
-                            } catch (e) {
-                                console.warn(`No se pudo aplicar la propiedad de texto '${prop}': ${e.message}`);
-                            }
-                        }
-                    }
-                }
-                
-                if (copiedProperties.width !== undefined && copiedProperties.height !== undefined && "resize" in containerNode) {
-                    const isAutoSized = 'primaryAxisSizingMode' in containerNode && (containerNode.primaryAxisSizingMode === 'AUTO' || containerNode.counterAxisSizingMode === 'AUTO');
-                    if (!isAutoSized) {
-                        containerNode.resize(copiedProperties.width, copiedProperties.height);
-                    }
-                }
+                yield deepApplyStyles(targetNode, copiedProperties);
             }
             figma.notify(`Estilos pegados en ${selection.length} objeto(s)! ✨`);
         }
-    } catch (error) {
+    }
+    catch (error) {
         figma.notify('Hubo un error: ' + error.message);
         console.error('Error en el plugin:', error);
     }

@@ -1,9 +1,18 @@
 {
   "name": "CopyKit - Copy & Paste Styles (Beta)",
-  "id": "copiar-pegar-estilos",
+  "id": "1524614195259312213",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
   "editorType": ["figma"],
-  "enableProposedApi": true
+  
+  "networkAccess": {
+    "allowedDomains": [
+      "https://cdnjs.cloudflare.com",
+      "https://fonts.googleapis.com",
+      "https://fonts.gstatic.com"
+    ]
+  },
+  
+  "documentAccess": "dynamic-page"
 }

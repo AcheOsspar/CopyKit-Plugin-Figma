@@ -60,14 +60,15 @@ function getStylesForNode(node, options) {
     if (options.copyStyle) {
         if ('fills' in node) styles.fills = clone(node.fills);
         if ('strokes' in node) styles.strokes = clone(node.strokes);
+        if ('effects' in node) styles.effects = clone(node.effects);
+        if ('fillStyleId' in node && node.fillStyleId) styles.fillStyleId = node.fillStyleId;
+        if ('strokeStyleId' in node && node.strokeStyleId) styles.strokeStyleId = node.strokeStyleId;
+        if ('effectStyleId' in node && node.effectStyleId) styles.effectStyleId = node.effectStyleId;
         if ('strokeWeight' in node) styles.strokeWeight = node.strokeWeight;
         if ('strokeAlign' in node) styles.strokeAlign = node.strokeAlign;
-        if ('effects' in node) styles.effects = clone(node.effects);
         if ('opacity' in node) styles.opacity = node.opacity;
     }
     if (options.copyLayout) {
-        // ---- INICIO DE LA CORRECCIÓN ----
-        // Se copian las propiedades de alineación del contenedor
         if ("layoutMode" in node && node.layoutMode !== "NONE") {
             styles.paddingLeft = node.paddingLeft; styles.paddingRight = node.paddingRight;
             styles.paddingTop = node.paddingTop; styles.paddingBottom = node.paddingBottom;
@@ -75,7 +76,6 @@ function getStylesForNode(node, options) {
             styles.primaryAxisAlignItems = node.primaryAxisAlignItems;
             styles.counterAxisAlignItems = node.counterAxisAlignItems;
         }
-        // ---- FIN DE LA CORRECCIÓN ----
         if ('topLeftRadius' in node) styles.topLeftRadius = node.topLeftRadius;
         if ('topRightRadius' in node) styles.topRightRadius = node.topRightRadius;
         if ('bottomLeftRadius' in node) styles.bottomLeftRadius = node.bottomLeftRadius;
@@ -89,6 +89,7 @@ function getStylesForNode(node, options) {
         styles.width = node.width; styles.height = node.height;
     }
     if (options.copyText && node.type === 'TEXT') {
+        if ('textStyleId' in node && node.textStyleId) styles.textStyleId = node.textStyleId;
         styles.fontName = clone(node.fontName); styles.fontSize = clone(node.fontSize);
         styles.letterSpacing = clone(node.letterSpacing); styles.lineHeight = clone(node.lineHeight);
         styles.textAlignHorizontal = node.textAlignHorizontal; styles.textAlignVertical = node.textAlignVertical;
@@ -113,76 +114,107 @@ function deepCopyStyles(node, options) {
     });
 }
 
+function applyProperty(targetNode, prop, value) {
+    if (prop in targetNode) {
+        try {
+            targetNode[prop] = value;
+        } catch (e) {}
+    }
+}
+
 function deepApplyStyles(targetNode, styles) {
     return __awaiter(this, void 0, void 0, function* () {
         const styleProps = Object.assign({}, styles);
+        const children = styles.children;
+        const width = styles.width;
+        const height = styles.height;
         delete styleProps.children;
         delete styleProps.nodeType;
-        
-        const newWidth = styleProps.width;
-        const newHeight = styleProps.height;
         delete styleProps.width;
         delete styleProps.height;
 
-        for (const prop in styleProps) {
-            if (prop in targetNode) {
-                try {
+        if (styleProps.fillStyleId) applyProperty(targetNode, 'fillStyleId', styleProps.fillStyleId);
+        if (styleProps.strokeStyleId) applyProperty(targetNode, 'strokeStyleId', styleProps.strokeStyleId);
+        if (styleProps.effectStyleId) applyProperty(targetNode, 'effectStyleId', styleProps.effectStyleId);
+        if (targetNode.type === 'TEXT' && styleProps.textStyleId) {
+            applyProperty(targetNode, 'textStyleId', styleProps.textStyleId);
+        }
+
+        if (!styleProps.fillStyleId && 'fills' in styleProps) applyProperty(targetNode, 'fills', styleProps.fills);
+        if (!styleProps.strokeStyleId && 'strokes' in styleProps) applyProperty(targetNode, 'strokes', styleProps.strokes);
+        if (!styleProps.effectStyleId && 'effects' in styleProps) applyProperty(targetNode, 'effects', styleProps.effects);
+
+        const containerLayoutProps = ['layoutMode', 'itemSpacing', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'primaryAxisAlignItems', 'counterAxisAlignItems'];
+        for (const prop of containerLayoutProps) {
+            if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
+        }
+        
+        const childLayoutProps = ['layoutAlign', 'layoutGrow', 'layoutSizingHorizontal', 'layoutSizingVertical'];
+        for (const prop of childLayoutProps) {
+            if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
+        }
+        
+        const visualProps = ['strokeWeight', 'strokeAlign', 'opacity', 'topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius'];
+        for (const prop of visualProps) {
+             if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
+        }
+
+        if (targetNode.type === 'TEXT' && !styleProps.textStyleId) {
+            const textProps = ['fontName', 'fontSize', 'letterSpacing', 'lineHeight', 'textAlignHorizontal', 'textAlignVertical', 'textCase', 'textDecoration'];
+            for (const prop of textProps) {
+                if (prop in styleProps) {
                     if (prop === 'fontName' && styleProps.fontName !== figma.mixed) {
                         yield figma.loadFontAsync(styleProps.fontName);
                     }
-                    targetNode[prop] = styleProps[prop];
-                } catch (e) {
-                    console.warn(`No se pudo aplicar la propiedad '${prop}' a ${targetNode.name}`);
+                    applyProperty(targetNode, prop, styleProps[prop]);
                 }
             }
         }
-        
-        if (newWidth !== undefined && newHeight !== undefined && 'resize' in targetNode) {
+
+        if (width !== undefined && height !== undefined && 'resize' in targetNode) {
             try {
-                targetNode.resize(newWidth, newHeight);
+                targetNode.resize(width, height);
             } catch (e) {}
         }
-        
-        if (styles.children && targetNode.children && typeof targetNode.findOne === 'function') {
-            for (const childNode of targetNode.children) {
-                if (styles.children[childNode.name]) {
-                    yield deepApplyStyles(childNode, styles.children[childNode.name]);
+
+        // ---- INICIO DE LA CORRECCIÓN ----
+        if (children && targetNode.children && typeof targetNode.findOne === 'function') {
+            const sourceChildrenNames = Object.keys(children);
+            // Regla especial: si solo hay un hijo en el origen y uno en el destino, aplicamos los estilos sin importar el nombre.
+            if (sourceChildrenNames.length === 1 && targetNode.children.length === 1) {
+                const childNode = targetNode.children[0];
+                const childStyles = children[sourceChildrenNames[0]]; // Tomamos el único estilo de hijo que hay
+                yield deepApplyStyles(childNode, childStyles);
+            } else {
+                // Lógica original: para casos complejos, seguimos haciendo coincidir por nombre.
+                for (const childNode of targetNode.children) {
+                    if (children[childNode.name]) {
+                        yield deepApplyStyles(childNode, children[childNode.name]);
+                    }
                 }
             }
         }
+        // ---- FIN DE LA CORRECCIÓN ----
     });
 }
 
+
 const quickPasteHandler = () => __awaiter(_this, void 0, void 0, function* () {
     if (!isQuickPasteActive || !copiedProperties) return;
-
     const selection = figma.currentPage.selection;
     if (selection.length > 0) {
         for (const originalNode of selection) {
             let targetNode = originalNode;
-            const needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && !targetNode.layoutMode;
+            const needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && (targetNode.layoutMode === 'NONE' || !targetNode.layoutMode);
             if (needsWrapping) {
                 const frame = figma.createFrame();
                 const parent = targetNode.parent;
                 if (parent) {
-                    const index = parent.children.indexOf(targetNode);
+                    const index = parent.children.indexOf(originalNode);
                     parent.insertChild(index, frame);
                 }
                 frame.x = targetNode.x;
                 frame.y = targetNode.y;
-                
-                 // ---- INICIO DE LA CORRECCIÓN ----
-                // Se configura el frame con las reglas de layout ANTES de añadir el hijo
-                frame.layoutMode = copiedProperties.layoutMode || 'VERTICAL';
-                frame.primaryAxisAlignItems = copiedProperties.primaryAxisAlignItems || 'MIN';
-                frame.counterAxisAlignItems = copiedProperties.counterAxisAlignItems || 'MIN';
-                frame.itemSpacing = copiedProperties.itemSpacing || 0;
-                frame.paddingTop = copiedProperties.paddingTop || 0;
-                frame.paddingBottom = copiedProperties.paddingBottom || 0;
-                frame.paddingLeft = copiedProperties.paddingLeft || 0;
-                frame.paddingRight = copiedProperties.paddingRight || 0;
-                // ---- FIN DE LA CORRECCIÓN ----
-                
                 frame.appendChild(targetNode);
                 targetNode.x = 0;
                 targetNode.y = 0;
@@ -254,29 +286,16 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
             }
             for (const originalNode of selection) {
                 let targetNode = originalNode;
-                const needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && !targetNode.layoutMode;
+                const needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && (targetNode.layoutMode === 'NONE' || !targetNode.layoutMode);
                 if (needsWrapping) {
                     const frame = figma.createFrame();
                     const parent = targetNode.parent;
                     if (parent) {
-                        const index = parent.children.indexOf(targetNode);
+                        const index = parent.children.indexOf(originalNode);
                         parent.insertChild(index, frame);
                     }
                     frame.x = targetNode.x;
                     frame.y = targetNode.y;
-                    
-                    // ---- INICIO DE LA CORRECCIÓN ----
-                     // Se configura el frame con las reglas de layout ANTES de añadir el hijo
-                    frame.layoutMode = copiedProperties.layoutMode || 'VERTICAL';
-                    frame.primaryAxisAlignItems = copiedProperties.primaryAxisAlignItems || 'MIN';
-                    frame.counterAxisAlignItems = copiedProperties.counterAxisAlignItems || 'MIN';
-                    frame.itemSpacing = copiedProperties.itemSpacing || 0;
-                    frame.paddingTop = copiedProperties.paddingTop || 0;
-                    frame.paddingBottom = copiedProperties.paddingBottom || 0;
-                    frame.paddingLeft = copiedProperties.paddingLeft || 0;
-                    frame.paddingRight = copiedProperties.paddingRight || 0;
-                     // ---- FIN DE LA CORRECCIÓN ----
-                    
                     frame.appendChild(targetNode);
                     targetNode.x = 0;
                     targetNode.y = 0;

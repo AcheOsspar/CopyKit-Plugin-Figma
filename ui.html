@@ -10,23 +10,19 @@
         
         body { font-family: var(--font-family); margin: 0; padding: 0; background: var(--bg-light); color: var(--text-light); display: flex; flex-direction: column; align-items: center; position: relative; transition: background 0.2s, color 0.2s; height: 100vh; }
         
-        /* --- CONTENEDOR DEL BANNER SUPERIOR --- */
         .banner-container {
             width: 100%;
-            height: 90px;
+            height: 80px;
             flex-shrink: 0;
             background-color: #f0f0f0;
-            /* background-image: url('URL_DE_TU_IMAGEN_AQUI'); */
             background-size: cover;
             background-position: center;
-            /* Centra el contenido del banner (logo, etc.) */
             display: flex;
             justify-content: center;
             align-items: center;
         }
         .header-content { text-align: center; }
 
-        /* --- CONTENEDOR PRINCIPAL DE LA APP --- */
         .app-wrapper {
             padding: 16px;
             box-sizing: border-box;
@@ -36,8 +32,6 @@
             align-items: center;
         }
 
-        /* --- INICIO DE CORRECCIÓN DE ESTILOS --- */
-        /* Nueva barra de controles para tema e idioma */
         .top-controls {
             display: flex;
             justify-content: space-between;
@@ -47,15 +41,13 @@
             margin-bottom: 12px;
         }
 
-        /* Se elimina 'position: absolute' para que estén dentro del flujo normal */
-        .theme-switch-wrapper { /* ya no necesita position: absolute */ }
+        .theme-switch-wrapper { /* No longer absolute */ }
         .lang-switch {
             font-size: 11px;
             font-weight: 600;
             color: var(--muted-light);
             user-select: none;
         }
-        /* --- FIN DE CORRECCIÓN DE ESTILOS --- */
 
         .theme-switch { position: relative; display: inline-block; width: 38px; height: 20px; }
         .theme-switch input { opacity: 0; width: 0; height: 0; }
@@ -92,7 +84,6 @@
         .quick-paste-wrapper { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px; font-weight: 600; }
         
         .small { font-size: 10px; text-align: center; margin-top: 6px; }
-        .footer { font-size: 9.5px; text-align: center; margin-top: 15px; }
         
         body.dark { background: var(--bg-dark); color: var(--text-dark); }
         body.dark .banner-container { background-color: #1a1a1a; }
@@ -113,6 +104,7 @@
             <div class="author text-muted">by Alain Ossandon</div>
         </div>
     </div>
+    
     <div class="app-wrapper">
         <div class="top-controls">
             <div class="theme-switch-wrapper">
@@ -164,10 +156,9 @@
         </div>
 
         <div class="small text-muted" data-translate="hint">*Selecciona un nodo para copiar o aplicar estilos</div>
-        <div class="footer text-muted" data-translate="footer">Una solución nacida del caos visual ❤️</div>
     </div>
+
     <script>
-        // El código Javascript no necesita cambios.
         const postMessage = (message) => parent.postMessage({ pluginMessage: message }, '*');
         const getOptions = () => ({ copyStyle: document.getElementById('style').checked, copyLayout: document.getElementById('layout').checked, copySize: document.getElementById('size').checked, copyText: document.getElementById('text').checked, autoWrap: document.getElementById('autoWrap').checked });
         document.getElementById('copy').onclick = () => postMessage({ type: 'copy', ...getOptions() });
@@ -184,8 +175,8 @@
             postMessage({ type: 'saveTheme', value: isDark ? 'dark' : 'light' });
         };
         const translations = {
-            es: { subtitle: 'Duplica estilos con un clic', copy: 'Copiar estilos', paste: 'Pegar estilos', visual: 'Estilos visuales', visualSmall: '(relleno, borde, efectos)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Tamaño', sizeSmall: '(ancho, alto)', text: 'Estilos de texto', auto: 'Aplicar Auto Layout', autoSmall: '(si es necesario)', hint: '*Selecciona un nodo para copiar o aplicar estilos', footer: 'Una solución nacida del caos visual ❤️', quickPaste: 'Modo Gotero' },
-            en: { subtitle: 'Duplicate styles with one click', copy: 'Copy styles', paste: 'Paste styles', visual: 'Visual styles', visualSmall: '(fill, border, effects)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Size', sizeSmall: '(width, height)', text: 'Text styles', auto: 'Apply Auto Layout', autoSmall: '(if needed)', hint: '*Select a node to copy or apply styles', footer: 'A solution born from visual chaos ❤️', quickPaste: 'Eyedropper Mode' }
+            es: { subtitle: 'Duplica estilos con un clic', copy: 'Copiar estilos', paste: 'Pegar estilos', visual: 'Estilos visuales', visualSmall: '(relleno, borde, efectos)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Tamaño', sizeSmall: '(ancho, alto)', text: 'Estilos de texto', auto: 'Aplicar Auto Layout', autoSmall: '(si es necesario)', hint: '*Selecciona un nodo para copiar o aplicar estilos', quickPaste: 'Modo Gotero' },
+            en: { subtitle: 'Duplicate styles with one click', copy: 'Copy styles', paste: 'Paste styles', visual: 'Visual styles', visualSmall: '(fill, border, effects)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Size', sizeSmall: '(width, height)', text: 'Text styles', auto: 'Apply Auto Layout', autoSmall: '(if needed)', hint: '*Select a node to copy or apply styles', quickPaste: 'Eyedropper Mode' }
         };
         function setLanguage(lang) {
             document.querySelectorAll('[data-translate]').forEach(el => {

@@ -1,4 +1,4 @@
-# Plugins-Figma
+# CopyKit-Plugin-Figma
 
 ## Overview
 Plugins-Figma is a Figma plugin that allows users to easily copy and paste styles between nodes. It provides a user-friendly interface with options to copy visual styles, layout properties, text styles, and apply auto layout as needed.

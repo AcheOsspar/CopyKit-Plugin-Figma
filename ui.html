@@ -30,6 +30,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            flex-grow: 1; /* Permite que el footer se empuje hacia abajo */
         }
 
         .top-controls {
@@ -67,7 +68,7 @@
         .subtitle { font-size: 13px; margin-bottom: 4px; font-weight: 400; }
         .author { font-size: 10px; font-weight: 500; color: var(--muted-light); }
         
-        .card { background: var(--card-bg-light); border-radius: 13px; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 280px; margin-bottom: 12px; transition: background 0.2s; }
+        .card { background: var(--card-bg-light); border-radius: 13px; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 280px; transition: background 0.2s; }
         .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
         .custom-checkbox { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 500; cursor: pointer; user-select: none; }
         .custom-checkbox input[type="checkbox"] { display: none; }
@@ -84,6 +85,22 @@
         .quick-paste-wrapper { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px; font-weight: 600; }
         
         .small { font-size: 10px; text-align: center; margin-top: 6px; }
+
+        /* Estilo para el nuevo footer de feedback */
+        .feedback-footer {
+            margin-top: auto; /* Empuja el footer hacia abajo */
+            padding-top: 4px;
+            font-size: 9.5px;
+            text-align: center;
+        }
+        .feedback-footer a {
+            font-weight: 600;
+            color: var(--blue-base);
+            text-decoration: none;
+        }
+        .feedback-footer a:hover {
+            text-decoration: underline;
+        }
         
         body.dark { background: var(--bg-dark); color: var(--text-dark); }
         body.dark .banner-container { background-color: #1a1a1a; }
@@ -120,26 +137,11 @@
 
         <div class="card">
             <div class="checkbox-group">
-                <label class="custom-checkbox text-primary">
-                    <input type="checkbox" id="style" checked><span class="checkmark"></span>
-                    <span data-translate="visual">Estilos visuales</span> <small class="text-muted" data-translate="visualSmall">(relleno, borde, efectos)</small>
-                </label>
-                <label class="custom-checkbox text-primary">
-                    <input type="checkbox" id="layout" checked><span class="checkmark"></span>
-                    <span data-translate="layout">Layout</span> <small class="text-muted" data-translate="layoutSmall">(padding, spacing)</small>
-                </label>
-                <label class="custom-checkbox text-primary">
-                    <input type="checkbox" id="size" checked><span class="checkmark"></span>
-                    <span data-translate="size">Tamaño</span> <small class="text-muted" data-translate="sizeSmall">(ancho, alto)</small>
-                </label>
-                <label class="custom-checkbox text-primary">
-                    <input type="checkbox" id="text" checked><span class="checkmark"></span>
-                    <span data-translate="text">Estilos de texto</span>
-                </label>
-                <label class="custom-checkbox text-primary">
-                    <input type="checkbox" id="autoWrap" checked><span class="checkmark"></span>
-                    <span data-translate="auto">Aplicar Auto Layout</span> <small class="text-muted" data-translate="autoSmall">(si es necesario)</small>
-                </label>
+                <label class="custom-checkbox text-primary"><input type="checkbox" id="style" checked><span class="checkmark"></span><span data-translate="visual">Estilos visuales</span> <small class="text-muted" data-translate="visualSmall">(relleno, borde, efectos)</small></label>
+                <label class="custom-checkbox text-primary"><input type="checkbox" id="layout" checked><span class="checkmark"></span><span data-translate="layout">Layout</span> <small class="text-muted" data-translate="layoutSmall">(padding, spacing)</small></label>
+                <label class="custom-checkbox text-primary"><input type="checkbox" id="size" checked><span class="checkmark"></span><span data-translate="size">Tamaño</span> <small class="text-muted" data-translate="sizeSmall">(ancho, alto)</small></label>
+                <label class="custom-checkbox text-primary"><input type="checkbox" id="text" checked><span class="checkmark"></span><span data-translate="text">Estilos de texto</span></label>
+                <label class="custom-checkbox text-primary"><input type="checkbox" id="autoWrap" checked><span class="checkmark"></span><span data-translate="auto">Aplicar Auto Layout</span> <small class="text-muted" data-translate="autoSmall">(si es necesario)</small></label>
             </div>
             <div class="button-group">
                 <button id="copy"><i class="fa-regular fa-copy"></i> <span data-translate="copy">Copiar estilos</span></button>
@@ -156,28 +158,43 @@
         </div>
 
         <div class="small text-muted" data-translate="hint">*Selecciona un nodo para copiar o aplicar estilos</div>
+        
+        <div class="feedback-footer text-muted">
+            <a id="feedback-link" href="https://tally.so/r/woN09P" target="_blank" data-translate="feedback">Enviar feedback o reportar un error</a>
+        </div>
     </div>
 
     <script>
         const postMessage = (message) => parent.postMessage({ pluginMessage: message }, '*');
         const getOptions = () => ({ copyStyle: document.getElementById('style').checked, copyLayout: document.getElementById('layout').checked, copySize: document.getElementById('size').checked, copyText: document.getElementById('text').checked, autoWrap: document.getElementById('autoWrap').checked });
-        document.getElementById('copy').onclick = () => postMessage({ type: 'copy', ...getOptions() });
+        
+        // Corregido: Usamos Object.assign para compatibilidad, en lugar de ...spread
+        document.getElementById('copy').onclick = () => {
+            const options = getOptions();
+            const message = Object.assign({ type: 'copy' }, options);
+            postMessage(message);
+        };
+        
         document.getElementById('paste').onclick = () => postMessage({ type: 'paste' });
         document.getElementById('quick-paste-toggle').onchange = (event) => postMessage({ type: 'toggleQuickPaste', value: event.target.checked });
+        
         const checkboxes = ['style', 'layout', 'size', 'text', 'autoWrap'];
         checkboxes.forEach(id => {
             const el = document.getElementById(id);
             el.onchange = () => postMessage({ type: 'saveCheckbox', key: id, value: el.checked });
         });
+        
         const toggleSwitch = document.getElementById('dark-toggle');
         toggleSwitch.onchange = () => {
             const isDark = document.body.classList.toggle('dark');
             postMessage({ type: 'saveTheme', value: isDark ? 'dark' : 'light' });
         };
+        
         const translations = {
-            es: { subtitle: 'Duplica estilos con un clic', copy: 'Copiar estilos', paste: 'Pegar estilos', visual: 'Estilos visuales', visualSmall: '(relleno, borde, efectos)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Tamaño', sizeSmall: '(ancho, alto)', text: 'Estilos de texto', auto: 'Aplicar Auto Layout', autoSmall: '(si es necesario)', hint: '*Selecciona un nodo para copiar o aplicar estilos', quickPaste: 'Modo Gotero' },
-            en: { subtitle: 'Duplicate styles with one click', copy: 'Copy styles', paste: 'Paste styles', visual: 'Visual styles', visualSmall: '(fill, border, effects)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Size', sizeSmall: '(width, height)', text: 'Text styles', auto: 'Apply Auto Layout', autoSmall: '(if needed)', hint: '*Select a node to copy or apply styles', quickPaste: 'Eyedropper Mode' }
+            es: { subtitle: 'Duplica estilos con un clic', copy: 'Copiar estilos', paste: 'Pegar estilos', visual: 'Estilos visuales', visualSmall: '(relleno, borde, efectos)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Tamaño', sizeSmall: '(ancho, alto)', text: 'Estilos de texto', auto: 'Aplicar Auto Layout', autoSmall: '(si es necesario)', hint: '*Selecciona un nodo para copiar o aplicar estilos', quickPaste: 'Modo Gotero', feedback: 'Enviar feedback o reportar un error' },
+            en: { subtitle: 'Duplicate styles with one click', copy: 'Copy styles', paste: 'Paste styles', visual: 'Visual styles', visualSmall: '(fill, border, effects)', layout: 'Layout', layoutSmall: '(padding, spacing)', size: 'Size', sizeSmall: '(width, height)', text: 'Text styles', auto: 'Apply Auto Layout', autoSmall: '(if needed)', hint: '*Select a node to copy or apply styles', quickPaste: 'Eyedropper Mode', feedback: 'Send feedback or report a bug' }
         };
+
         function setLanguage(lang) {
             document.querySelectorAll('[data-translate]').forEach(el => {
                 const key = el.dataset.translate;
@@ -186,8 +203,10 @@
             document.querySelectorAll('.lang-option').forEach(el => el.classList.remove('active'));
             document.getElementById(`lang-${lang}`).classList.add('active');
         }
+
         document.getElementById('lang-es').onclick = () => { setLanguage('es'); postMessage({ type: 'saveLanguage', value: 'es' }); };
         document.getElementById('lang-en').onclick = () => { setLanguage('en'); postMessage({ type: 'saveLanguage', value: 'en' }); };
+
         onmessage = (event) => {
             const msg = event.data.pluginMessage;
             if (msg.type === 'preferencesLoaded') {

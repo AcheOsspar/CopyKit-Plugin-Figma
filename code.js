@@ -44,7 +44,7 @@ var isQuickPasteActive = false;
 var selectionChangeHandler = null;
 
 
-figma.showUI(__html__, { width: 380, height: 460 });
+figma.showUI(__html__, { width: 380, height: 575 });
 
 function clone(val) {
     if (val === undefined || val === figma.mixed) { return val; }
@@ -57,59 +57,266 @@ function clone(val) {
 
 function getStylesForNode(node, options) {
     const styles = { nodeType: node.type };
-    if (options.copyStyle) {
-        if ('fills' in node) styles.fills = clone(node.fills);
-        if ('strokes' in node) styles.strokes = clone(node.strokes);
-        if ('effects' in node) styles.effects = clone(node.effects);
-        if ('fillStyleId' in node && node.fillStyleId) styles.fillStyleId = node.fillStyleId;
-        if ('strokeStyleId' in node && node.strokeStyleId) styles.strokeStyleId = node.strokeStyleId;
-        if ('effectStyleId' in node && node.effectStyleId) styles.effectStyleId = node.effectStyleId;
-        if ('strokeWeight' in node) styles.strokeWeight = node.strokeWeight;
-        if ('strokeAlign' in node) styles.strokeAlign = node.strokeAlign;
-        if ('opacity' in node) styles.opacity = node.opacity;
+    
+    // Detectar si es una instancia de componente o está dentro de uno
+    let sourceNode = node;
+    if (node.type === 'INSTANCE') {
+        // Si es una instancia de componente, usar el nodo directamente
+        sourceNode = node;
     }
-    if (options.copyLayout) {
-        if ("layoutMode" in node && node.layoutMode !== "NONE") {
-            styles.paddingLeft = node.paddingLeft; styles.paddingRight = node.paddingRight;
-            styles.paddingTop = node.paddingTop; styles.paddingBottom = node.paddingBottom;
-            styles.itemSpacing = node.itemSpacing; styles.layoutMode = node.layoutMode;
-            styles.primaryAxisAlignItems = node.primaryAxisAlignItems;
-            styles.counterAxisAlignItems = node.counterAxisAlignItems;
+    
+    // Debug: Mostrar todas las propiedades relacionadas con estilos
+    console.log('=== DEBUGGING STYLE PROPERTIES ===');
+    console.log(`Nodo: ${sourceNode.name} (${sourceNode.type})`);
+    console.log('Node tiene las siguientes propiedades de estilo:');
+    console.log('- fillStyleId:', sourceNode.fillStyleId, '(tipo:', typeof sourceNode.fillStyleId, ')');
+    console.log('- strokeStyleId:', sourceNode.strokeStyleId, '(tipo:', typeof sourceNode.strokeStyleId, ')');
+    console.log('- effectStyleId:', sourceNode.effectStyleId, '(tipo:', typeof sourceNode.effectStyleId, ')');
+    if (sourceNode.type === 'TEXT') {
+        console.log('- textStyleId:', sourceNode.textStyleId, '(tipo:', typeof sourceNode.textStyleId, ')');
+    }
+    console.log('Node tiene las siguientes propiedades individuales:');
+    console.log('- fills length:', sourceNode.fills ? sourceNode.fills.length : 'N/A');
+    console.log('- strokes length:', sourceNode.strokes ? sourceNode.strokes.length : 'N/A');
+    console.log('- effects length:', sourceNode.effects ? sourceNode.effects.length : 'N/A');
+    console.log('Opciones de copia seleccionadas:');
+    console.log('- copyFill:', options.copyFill);
+    console.log('- copyStroke:', options.copyStroke);
+    console.log('- copyEffects:', options.copyEffects);
+    console.log('- copyText:', options.copyText);
+    console.log('=====================================');
+    
+    // Fill (rellenos y colores)
+    if (options.copyFill) {
+        console.log('🔍 Analizando Fill...');
+        
+        // PRIORIDAD: Copiar Style IDs primero (Design System)
+        if (sourceNode.fillStyleId) {
+            console.log('📋 fillStyleId encontrado:', sourceNode.fillStyleId);
+            console.log('📋 Tipo:', typeof sourceNode.fillStyleId);
+            console.log('📋 Es mixed?:', sourceNode.fillStyleId === figma.mixed);
+            
+            // Simplificar validación - solo verificar que no sea undefined, null o mixed
+            if (sourceNode.fillStyleId !== undefined && 
+                sourceNode.fillStyleId !== null && 
+                sourceNode.fillStyleId !== figma.mixed) {
+                
+                styles.fillStyleId = sourceNode.fillStyleId;
+                console.log('✅ Guardando fillStyleId:', sourceNode.fillStyleId);
+                
+                // Intentar obtener el nombre del estilo para debugging
+                try {
+                    const fillStyle = figma.getStyleById(sourceNode.fillStyleId);
+                    if (fillStyle) {
+                        console.log('✅ Color Style LOCAL encontrado:', fillStyle.name);
+                        styles.fillStyleName = fillStyle.name;
+                    }
+                } catch (e) {
+                    console.log('⚠️ Color Style EXTERNO (Design System):', sourceNode.fillStyleId);
+                    console.log('⚠️ Error al acceder:', e.message);
+                    styles.fillStyleName = 'External Design System Style';
+                }
+            } else {
+                console.log('❌ fillStyleId no válido o es mixed');
+            }
+        } else {
+            console.log('❌ No hay fillStyleId en el nodo');
         }
-        if ('topLeftRadius' in node) styles.topLeftRadius = node.topLeftRadius;
-        if ('topRightRadius' in node) styles.topRightRadius = node.topRightRadius;
-        if ('bottomLeftRadius' in node) styles.bottomLeftRadius = node.bottomLeftRadius;
-        if ('bottomRightRadius' in node) styles.bottomRightRadius = node.bottomRightRadius;
-        if ('layoutAlign' in node) styles.layoutAlign = node.layoutAlign;
-        if ('layoutGrow' in node) styles.layoutGrow = node.layoutGrow;
-        if ('layoutSizingHorizontal' in node) styles.layoutSizingHorizontal = node.layoutSizingHorizontal;
-        if ('layoutSizingVertical' in node) styles.layoutSizingVertical = node.layoutSizingVertical;
+        
+        // Siempre copiar fills como respaldo
+        if (sourceNode.fills && sourceNode.fills.length > 0) {
+            styles.fills = clone(sourceNode.fills);
+            console.log('✅ Copiando fills como respaldo:', sourceNode.fills.length, 'elementos');
+        } else {
+            console.log('❌ No hay fills en el nodo');
+        }
     }
-    if (options.copySize && "resize" in node) {
-        styles.width = node.width; styles.height = node.height;
+    
+    // Stroke (bordes y trazos)
+    if (options.copyStroke) {
+        console.log('🔍 Analizando Stroke...');
+        
+        // PRIORIDAD: Copiar Style IDs primero (Design System)
+        if (sourceNode.strokeStyleId) {
+            console.log('📋 strokeStyleId encontrado:', sourceNode.strokeStyleId);
+            
+            if (sourceNode.strokeStyleId !== undefined && 
+                sourceNode.strokeStyleId !== null && 
+                sourceNode.strokeStyleId !== figma.mixed) {
+                
+                styles.strokeStyleId = sourceNode.strokeStyleId;
+                console.log('✅ Guardando strokeStyleId:', sourceNode.strokeStyleId);
+                
+                try {
+                    const strokeStyle = figma.getStyleById(sourceNode.strokeStyleId);
+                    if (strokeStyle) {
+                        console.log('✅ Stroke Style LOCAL:', strokeStyle.name);
+                        styles.strokeStyleName = strokeStyle.name;
+                    }
+                } catch (e) {
+                    console.log('⚠️ Stroke Style EXTERNO:', sourceNode.strokeStyleId);
+                    styles.strokeStyleName = 'External Stroke Style';
+                }
+            }
+        }
+        
+        // Siempre copiar propiedades como respaldo
+        if (sourceNode.strokes && sourceNode.strokes.length > 0) {
+            styles.strokes = clone(sourceNode.strokes);
+            console.log('✅ Copiando strokes:', sourceNode.strokes.length, 'elementos');
+        }
+        if (sourceNode.strokeWeight !== undefined) {
+            styles.strokeWeight = sourceNode.strokeWeight;
+            console.log('✅ Copiando strokeWeight:', sourceNode.strokeWeight);
+        }
+        if (sourceNode.strokeAlign !== undefined) {
+            styles.strokeAlign = sourceNode.strokeAlign;
+            console.log('✅ Copiando strokeAlign:', sourceNode.strokeAlign);
+        }
     }
-    if (options.copyText && node.type === 'TEXT') {
-        if ('textStyleId' in node && node.textStyleId) styles.textStyleId = node.textStyleId;
-        styles.fontName = clone(node.fontName); styles.fontSize = clone(node.fontSize);
-        styles.letterSpacing = clone(node.letterSpacing); styles.lineHeight = clone(node.lineHeight);
-        styles.textAlignHorizontal = node.textAlignHorizontal; styles.textAlignVertical = node.textAlignVertical;
-        styles.textCase = clone(node.textCase); styles.textDecoration = clone(node.textDecoration);
+    
+    // Effects (sombras y efectos)
+    if (options.copyEffects) {
+        console.log('🔍 Analizando Effects...');
+        
+        // PRIORIDAD: Copiar Style IDs primero (Design System)
+        if (sourceNode.effectStyleId) {
+            console.log('📋 effectStyleId encontrado:', sourceNode.effectStyleId);
+            
+            if (sourceNode.effectStyleId !== undefined && 
+                sourceNode.effectStyleId !== null && 
+                sourceNode.effectStyleId !== figma.mixed) {
+                
+                styles.effectStyleId = sourceNode.effectStyleId;
+                console.log('✅ Guardando effectStyleId:', sourceNode.effectStyleId);
+                
+                try {
+                    const effectStyle = figma.getStyleById(sourceNode.effectStyleId);
+                    if (effectStyle) {
+                        console.log('✅ Effect Style LOCAL:', effectStyle.name);
+                        styles.effectStyleName = effectStyle.name;
+                    }
+                } catch (e) {
+                    console.log('⚠️ Effect Style EXTERNO:', sourceNode.effectStyleId);
+                    styles.effectStyleName = 'External Effect Style';
+                }
+            }
+        }
+        
+        // Siempre copiar effects como respaldo
+        if (sourceNode.effects && sourceNode.effects.length > 0) {
+            styles.effects = clone(sourceNode.effects);
+            console.log('✅ Copiando effects:', sourceNode.effects.length, 'elementos');
+        }
     }
+    
+    // Opacity & Blending (transparencia)
+    if (options.copyOpacity) {
+        if ('opacity' in sourceNode) styles.opacity = sourceNode.opacity;
+    }
+    
+    // Corner Radius (bordes redondeados)
+    if (options.copyRadius) {
+        if ('topLeftRadius' in sourceNode) styles.topLeftRadius = sourceNode.topLeftRadius;
+        if ('topRightRadius' in sourceNode) styles.topRightRadius = sourceNode.topRightRadius;
+        if ('bottomLeftRadius' in sourceNode) styles.bottomLeftRadius = sourceNode.bottomLeftRadius;
+        if ('bottomRightRadius' in sourceNode) styles.bottomRightRadius = sourceNode.bottomRightRadius;
+    }
+    
+    if (options.copyLayout) {
+        if ("layoutMode" in sourceNode && sourceNode.layoutMode !== "NONE") {
+            styles.paddingLeft = sourceNode.paddingLeft; styles.paddingRight = sourceNode.paddingRight;
+            styles.paddingTop = sourceNode.paddingTop; styles.paddingBottom = sourceNode.paddingBottom;
+            styles.itemSpacing = sourceNode.itemSpacing; styles.layoutMode = sourceNode.layoutMode;
+            styles.primaryAxisAlignItems = sourceNode.primaryAxisAlignItems;
+            styles.counterAxisAlignItems = sourceNode.counterAxisAlignItems;
+        }
+        if ('layoutAlign' in sourceNode) styles.layoutAlign = sourceNode.layoutAlign;
+        if ('layoutGrow' in sourceNode) styles.layoutGrow = sourceNode.layoutGrow;
+        if ('layoutSizingHorizontal' in sourceNode) styles.layoutSizingHorizontal = sourceNode.layoutSizingHorizontal;
+        if ('layoutSizingVertical' in sourceNode) styles.layoutSizingVertical = sourceNode.layoutSizingVertical;
+    }
+    if (options.copySize && "resize" in sourceNode) {
+        styles.width = sourceNode.width; styles.height = sourceNode.height;
+    }
+    if (options.copyText && sourceNode.type === 'TEXT') {
+        console.log('🔍 Analizando Text Styles...');
+        
+        // PRIORIDAD: Copiar Text Style ID primero (Design System)
+        if (sourceNode.textStyleId) {
+            console.log('📋 textStyleId encontrado:', sourceNode.textStyleId);
+            
+            if (sourceNode.textStyleId !== undefined && 
+                sourceNode.textStyleId !== null && 
+                sourceNode.textStyleId !== figma.mixed) {
+                
+                styles.textStyleId = sourceNode.textStyleId;
+                console.log('✅ Guardando textStyleId:', sourceNode.textStyleId);
+                
+                try {
+                    const textStyle = figma.getStyleById(sourceNode.textStyleId);
+                    if (textStyle) {
+                        console.log('✅ Text Style LOCAL:', textStyle.name);
+                        styles.textStyleName = textStyle.name;
+                    }
+                } catch (e) {
+                    console.log('⚠️ Text Style EXTERNO:', sourceNode.textStyleId);
+                    styles.textStyleName = 'External Text Style';
+                }
+            }
+        }
+        
+        // Siempre copiar propiedades como respaldo
+        styles.fontName = clone(sourceNode.fontName); 
+        styles.fontSize = clone(sourceNode.fontSize);
+        styles.letterSpacing = clone(sourceNode.letterSpacing); 
+        styles.lineHeight = clone(sourceNode.lineHeight);
+        styles.textAlignHorizontal = sourceNode.textAlignHorizontal; 
+        styles.textAlignVertical = sourceNode.textAlignVertical;
+        styles.textCase = clone(sourceNode.textCase); 
+        styles.textDecoration = clone(sourceNode.textDecoration);
+        
+        console.log('✅ Propiedades de texto copiadas como respaldo');
+    }
+    
+    // Información adicional para debugging
+    styles.isInstance = sourceNode.type === 'INSTANCE';
+    styles.nodeName = sourceNode.name;
+    
     return styles;
 }
 
 function deepCopyStyles(node, options) {
     return __awaiter(this, void 0, void 0, function* () {
+        // Verificar si es texto y cargar fuente si es necesario
         if (node.type === 'TEXT' && options.copyText && node.fontName !== figma.mixed) {
-            yield figma.loadFontAsync(node.fontName);
-        }
-        const styles = getStylesForNode(node, options);
-        if (node.children && typeof node.findOne === 'function') {
-            styles.children = {};
-            for (const child of node.children) {
-                styles.children[child.name] = yield deepCopyStyles(child, options);
+            try {
+                yield figma.loadFontAsync(node.fontName);
+            } catch (e) {
+                console.log('No se pudo cargar fuente:', node.fontName);
             }
         }
+        
+        const styles = getStylesForNode(node, options);
+        
+        // Información de debug mejorada
+        console.log(`Copiando estilos de: ${node.name} (${node.type})`);
+        if (node.type === 'INSTANCE') {
+            console.log('Es una instancia de componente');
+        }
+        
+        // Copiar estilos de hijos para componentes e instancias
+        if (node.children && node.children.length > 0) {
+            styles.children = {};
+            for (const child of node.children) {
+                try {
+                    styles.children[child.name] = yield deepCopyStyles(child, options);
+                } catch (e) {
+                    console.log(`Error copiando hijo ${child.name}:`, e.message);
+                }
+            }
+        }
+        
         return styles;
     });
 }
@@ -118,7 +325,10 @@ function applyProperty(targetNode, prop, value) {
     if (prop in targetNode) {
         try {
             targetNode[prop] = value;
-        } catch (e) {}
+        } catch (e) {
+            // Si falla aplicar un Style ID, intentar con las propiedades individuales
+            console.log(`No se pudo aplicar ${prop} con valor:`, value, 'Error:', e.message);
+        }
     }
 }
 
@@ -132,17 +342,117 @@ function deepApplyStyles(targetNode, styles) {
         delete styleProps.nodeType;
         delete styleProps.width;
         delete styleProps.height;
+        delete styleProps.isInstance;
+        delete styleProps.nodeName;
 
-        if (styleProps.fillStyleId) applyProperty(targetNode, 'fillStyleId', styleProps.fillStyleId);
-        if (styleProps.strokeStyleId) applyProperty(targetNode, 'strokeStyleId', styleProps.strokeStyleId);
-        if (styleProps.effectStyleId) applyProperty(targetNode, 'effectStyleId', styleProps.effectStyleId);
+        console.log(`🎯 Aplicando estilos a: ${targetNode.name} (${targetNode.type})`);
+        console.log('📋 Estilos recibidos:', {
+            fillStyleId: styleProps.fillStyleId,
+            strokeStyleId: styleProps.strokeStyleId,
+            effectStyleId: styleProps.effectStyleId,
+            textStyleId: styleProps.textStyleId,
+            hasFills: !!styleProps.fills,
+            hasStrokes: !!styleProps.strokes,
+            hasEffects: !!styleProps.effects
+        });
+
+        // PRIORIDAD 1: Aplicar Style IDs de Design System primero (MÉTODO ASÍNCRONO)
+        if (styleProps.fillStyleId) {
+            console.log(`🎨 Aplicando fillStyleId: ${styleProps.fillStyleId}`);
+            try {
+                // Usar método asíncrono para estilos externos
+                yield targetNode.setFillStyleIdAsync(styleProps.fillStyleId);
+                console.log('✅ FillStyleId aplicado exitosamente con setFillStyleIdAsync');
+                
+                // Verificar si se aplicó correctamente
+                if (targetNode.fillStyleId === styleProps.fillStyleId) {
+                    console.log('✅ FillStyleId confirmado en el nodo destino');
+                } else {
+                    console.log('⚠️ FillStyleId no coincide después de aplicar');
+                }
+            } catch (e) {
+                console.log('❌ Error aplicando fillStyleId con método asíncrono:', e.message);
+                // Intentar método síncrono como respaldo
+                try {
+                    targetNode.fillStyleId = styleProps.fillStyleId;
+                    console.log('⚠️ Aplicado con método síncrono como respaldo');
+                } catch (syncError) {
+                    console.log('❌ Error también con método síncrono:', syncError.message);
+                }
+            }
+        }
+        if (styleProps.strokeStyleId) {
+            console.log(`🎨 Aplicando strokeStyleId: ${styleProps.strokeStyleId}`);
+            try {
+                yield targetNode.setStrokeStyleIdAsync(styleProps.strokeStyleId);
+                console.log('✅ StrokeStyleId aplicado exitosamente con setStrokeStyleIdAsync');
+            } catch (e) {
+                console.log('❌ Error aplicando strokeStyleId con método asíncrono:', e.message);
+                try {
+                    targetNode.strokeStyleId = styleProps.strokeStyleId;
+                    console.log('⚠️ StrokeStyleId aplicado con método síncrono como respaldo');
+                } catch (syncError) {
+                    console.log('❌ Error también con método síncrono:', syncError.message);
+                }
+            }
+        }
+        if (styleProps.effectStyleId) {
+            console.log(`🎨 Aplicando effectStyleId: ${styleProps.effectStyleId}`);
+            try {
+                yield targetNode.setEffectStyleIdAsync(styleProps.effectStyleId);
+                console.log('✅ EffectStyleId aplicado exitosamente con setEffectStyleIdAsync');
+            } catch (e) {
+                console.log('❌ Error aplicando effectStyleId con método asíncrono:', e.message);
+                try {
+                    targetNode.effectStyleId = styleProps.effectStyleId;
+                    console.log('⚠️ EffectStyleId aplicado con método síncrono como respaldo');
+                } catch (syncError) {
+                    console.log('❌ Error también con método síncrono:', syncError.message);
+                }
+            }
+        }
         if (targetNode.type === 'TEXT' && styleProps.textStyleId) {
-            applyProperty(targetNode, 'textStyleId', styleProps.textStyleId);
+            console.log(`🎨 Aplicando textStyleId: ${styleProps.textStyleId}`);
+            try {
+                yield targetNode.setTextStyleIdAsync(styleProps.textStyleId);
+                console.log('✅ TextStyleId aplicado exitosamente con setTextStyleIdAsync');
+            } catch (e) {
+                console.log('❌ Error aplicando textStyleId con método asíncrono:', e.message);
+                try {
+                    targetNode.textStyleId = styleProps.textStyleId;
+                    console.log('⚠️ TextStyleId aplicado con método síncrono como respaldo');
+                } catch (syncError) {
+                    console.log('❌ Error también con método síncrono:', syncError.message);
+                }
+            }
         }
 
-        if (!styleProps.fillStyleId && 'fills' in styleProps) applyProperty(targetNode, 'fills', styleProps.fills);
-        if (!styleProps.strokeStyleId && 'strokes' in styleProps) applyProperty(targetNode, 'strokes', styleProps.strokes);
-        if (!styleProps.effectStyleId && 'effects' in styleProps) applyProperty(targetNode, 'effects', styleProps.effects);
+        // PRIORIDAD 2: Aplicar propiedades individuales solo si NO hay Style IDs
+        // Fill (rellenos y colores)
+        if ((!styleProps.fillStyleId || styleProps.fillStyleId === '') && 'fills' in styleProps) {
+            applyProperty(targetNode, 'fills', styleProps.fills);
+        }
+        
+        // Stroke (bordes y trazos) - aplicar propiedades individuales
+        if ((!styleProps.strokeStyleId || styleProps.strokeStyleId === '') && 'strokes' in styleProps) {
+            applyProperty(targetNode, 'strokes', styleProps.strokes);
+        }
+        if ('strokeWeight' in styleProps) applyProperty(targetNode, 'strokeWeight', styleProps.strokeWeight);
+        if ('strokeAlign' in styleProps) applyProperty(targetNode, 'strokeAlign', styleProps.strokeAlign);
+        
+        // Effects (sombras y efectos)
+        if ((!styleProps.effectStyleId || styleProps.effectStyleId === '') && 'effects' in styleProps) {
+            applyProperty(targetNode, 'effects', styleProps.effects);
+        }
+        
+        // Opacity & Blending (transparencia)
+        if ('opacity' in styleProps) applyProperty(targetNode, 'opacity', styleProps.opacity);
+        
+        // Corner Radius (bordes redondeados)
+        if ('topLeftRadius' in styleProps) applyProperty(targetNode, 'topLeftRadius', styleProps.topLeftRadius);
+        if ('topRightRadius' in styleProps) applyProperty(targetNode, 'topRightRadius', styleProps.topRightRadius);
+        if ('bottomLeftRadius' in styleProps) applyProperty(targetNode, 'bottomLeftRadius', styleProps.bottomLeftRadius);
+        if ('bottomRightRadius' in styleProps) applyProperty(targetNode, 'bottomRightRadius', styleProps.bottomRightRadius);
 
         const containerLayoutProps = ['layoutMode', 'itemSpacing', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'primaryAxisAlignItems', 'counterAxisAlignItems'];
         for (const prop of containerLayoutProps) {
@@ -153,20 +463,41 @@ function deepApplyStyles(targetNode, styles) {
         for (const prop of childLayoutProps) {
             if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
         }
-        
-        const visualProps = ['strokeWeight', 'strokeAlign', 'opacity', 'topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius'];
-        for (const prop of visualProps) {
-             if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
-        }
 
-        if (targetNode.type === 'TEXT' && !styleProps.textStyleId) {
-            const textProps = ['fontName', 'fontSize', 'letterSpacing', 'lineHeight', 'textAlignHorizontal', 'textAlignVertical', 'textCase', 'textDecoration'];
-            for (const prop of textProps) {
-                if (prop in styleProps) {
-                    if (prop === 'fontName' && styleProps.fontName !== figma.mixed) {
-                        yield figma.loadFontAsync(styleProps.fontName);
+        if (targetNode.type === 'TEXT') {
+            // Si hay textStyleId, aplicarlo tiene prioridad sobre propiedades individuales
+            if (styleProps.textStyleId && styleProps.textStyleId !== '') {
+                // Ya se aplicó arriba, pero aplicamos propiedades individuales solo si no hay Style ID
+                const textProps = ['fontName', 'fontSize', 'letterSpacing', 'lineHeight', 'textAlignHorizontal', 'textAlignVertical', 'textCase', 'textDecoration'];
+                for (const prop of textProps) {
+                    if (prop in styleProps) {
+                        if (prop === 'fontName' && styleProps.fontName !== figma.mixed) {
+                            try {
+                                yield figma.loadFontAsync(styleProps.fontName);
+                            } catch (e) {
+                                console.log('No se pudo cargar fuente:', styleProps.fontName);
+                            }
+                        }
+                        // Solo aplicar si es una propiedad específica que queremos mantener junto con el style
+                        if (['textAlignHorizontal', 'textAlignVertical'].includes(prop)) {
+                            applyProperty(targetNode, prop, styleProps[prop]);
+                        }
                     }
-                    applyProperty(targetNode, prop, styleProps[prop]);
+                }
+            } else {
+                // No hay textStyleId, aplicar todas las propiedades individuales
+                const textProps = ['fontName', 'fontSize', 'letterSpacing', 'lineHeight', 'textAlignHorizontal', 'textAlignVertical', 'textCase', 'textDecoration'];
+                for (const prop of textProps) {
+                    if (prop in styleProps) {
+                        if (prop === 'fontName' && styleProps.fontName !== figma.mixed) {
+                            try {
+                                yield figma.loadFontAsync(styleProps.fontName);
+                            } catch (e) {
+                                console.log('No se pudo cargar fuente:', styleProps.fontName);
+                            }
+                        }
+                        applyProperty(targetNode, prop, styleProps[prop]);
+                    }
                 }
             }
         }
@@ -177,24 +508,36 @@ function deepApplyStyles(targetNode, styles) {
             } catch (e) {}
         }
 
-        // ---- INICIO DE LA CORRECCIÓN ----
-        if (children && targetNode.children && typeof targetNode.findOne === 'function') {
+        // ---- MEJORADO PARA COMPONENTES ----
+        if (children && targetNode.children && targetNode.children.length > 0) {
             const sourceChildrenNames = Object.keys(children);
+            console.log(`Aplicando estilos a ${targetNode.children.length} hijos`);
+            
             // Regla especial: si solo hay un hijo en el origen y uno en el destino, aplicamos los estilos sin importar el nombre.
             if (sourceChildrenNames.length === 1 && targetNode.children.length === 1) {
                 const childNode = targetNode.children[0];
-                const childStyles = children[sourceChildrenNames[0]]; // Tomamos el único estilo de hijo que hay
+                const childStyles = children[sourceChildrenNames[0]];
+                console.log(`Aplicando estilo único de hijo: ${sourceChildrenNames[0]} → ${childNode.name}`);
                 yield deepApplyStyles(childNode, childStyles);
             } else {
-                // Lógica original: para casos complejos, seguimos haciendo coincidir por nombre.
-                for (const childNode of targetNode.children) {
+                // Lógica mejorada: hacer coincidir por nombre y por posición si es necesario
+                for (let i = 0; i < targetNode.children.length; i++) {
+                    const childNode = targetNode.children[i];
+                    
+                    // Intentar por nombre primero
                     if (children[childNode.name]) {
+                        console.log(`Aplicando estilo por nombre: ${childNode.name}`);
                         yield deepApplyStyles(childNode, children[childNode.name]);
+                    } 
+                    // Si no encuentra por nombre, intentar por posición
+                    else if (sourceChildrenNames[i] && children[sourceChildrenNames[i]]) {
+                        console.log(`Aplicando estilo por posición ${i}: ${sourceChildrenNames[i]} → ${childNode.name}`);
+                        yield deepApplyStyles(childNode, children[sourceChildrenNames[i]]);
                     }
                 }
             }
         }
-        // ---- FIN DE LA CORRECCIÓN ----
+        // ---- FIN DE LA MEJORA ----
     });
 }
 
@@ -233,11 +576,14 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
             if (msg.type === 'saveLanguage') { yield figma.clientStorage.setAsync('language', msg.value); }
             if (msg.type === 'loadPreferences') {
                 const prefs = yield Promise.all([
-                    figma.clientStorage.getAsync('theme'), figma.clientStorage.getAsync('style'),
+                    figma.clientStorage.getAsync('theme'), figma.clientStorage.getAsync('fill'),
+                    figma.clientStorage.getAsync('stroke'), figma.clientStorage.getAsync('effects'),
+                    figma.clientStorage.getAsync('opacity'), figma.clientStorage.getAsync('radius'),
                     figma.clientStorage.getAsync('layout'), figma.clientStorage.getAsync('size'),
-                    figma.clientStorage.getAsync('text'), figma.clientStorage.getAsync('autoWrap'), figma.clientStorage.getAsync('language')
+                    figma.clientStorage.getAsync('text'), figma.clientStorage.getAsync('autoWrap'), 
+                    figma.clientStorage.getAsync('language')
                 ]);
-                figma.ui.postMessage({ type: 'preferencesLoaded', preferences: { theme: prefs[0], style: prefs[1], layout: prefs[2], size: prefs[3], text: prefs[4], autoWrap: prefs[5], language: prefs[6] } });
+                figma.ui.postMessage({ type: 'preferencesLoaded', preferences: { theme: prefs[0], fill: prefs[1], stroke: prefs[2], effects: prefs[3], opacity: prefs[4], radius: prefs[5], layout: prefs[6], size: prefs[7], text: prefs[8], autoWrap: prefs[9], language: prefs[10] } });
             }
             return;
         }
@@ -265,15 +611,72 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                 return;
             }
             const node = selection[0];
+            console.log(`Copiando estilos de: ${node.name} (${node.type})`);
+            
             const options = {
-                copyStyle: msg.copyStyle,
+                copyFill: msg.copyFill,
+                copyStroke: msg.copyStroke,
+                copyEffects: msg.copyEffects,
+                copyOpacity: msg.copyOpacity,
+                copyRadius: msg.copyRadius,
                 copyLayout: msg.copyLayout,
                 copySize: msg.copySize,
                 copyText: msg.copyText,
             };
             copiedProperties = yield deepCopyStyles(node, options);
             copiedProperties.autoWrap = msg.autoWrap;
-            figma.notify('Estilos profundos copiados! ✅');
+            
+            // Detectar si se copiaron estilos del Design System
+            let designSystemStyles = [];
+            let styleNames = [];
+            
+            if (copiedProperties.fillStyleId) {
+                designSystemStyles.push('Color');
+                try {
+                    const fillStyle = figma.getStyleById(copiedProperties.fillStyleId);
+                    if (fillStyle) styleNames.push(fillStyle.name);
+                } catch (e) {}
+            }
+            if (copiedProperties.strokeStyleId) {
+                designSystemStyles.push('Stroke');
+                try {
+                    const strokeStyle = figma.getStyleById(copiedProperties.strokeStyleId);
+                    if (strokeStyle) styleNames.push(strokeStyle.name);
+                } catch (e) {}
+            }
+            if (copiedProperties.effectStyleId) {
+                designSystemStyles.push('Effect');
+                try {
+                    const effectStyle = figma.getStyleById(copiedProperties.effectStyleId);
+                    if (effectStyle) styleNames.push(effectStyle.name);
+                } catch (e) {}
+            }
+            if (copiedProperties.textStyleId) {
+                designSystemStyles.push('Text');
+                try {
+                    const textStyle = figma.getStyleById(copiedProperties.textStyleId);
+                    if (textStyle) styleNames.push(textStyle.name);
+                } catch (e) {}
+            }
+            
+            // Detectar tipo de componente
+            let componentInfo = '';
+            if (node.type === 'INSTANCE') {
+                componentInfo = ' (Instancia de componente)';
+            } else if (node.type === 'COMPONENT') {
+                componentInfo = ' (Componente maestro)';
+            }
+            
+            if (designSystemStyles.length > 0) {
+                let message = `Estilos copiados! ✅ Incluye: ${designSystemStyles.join(', ')} Styles`;
+                if (styleNames.length > 0) {
+                    message += ` (${styleNames.join(', ')})`;
+                }
+                message += componentInfo;
+                figma.notify(message);
+            } else {
+                figma.notify(`Estilos profundos copiados! ✅${componentInfo}`);
+            }
         }
         if (msg.type === 'paste') {
             if (!copiedProperties) {

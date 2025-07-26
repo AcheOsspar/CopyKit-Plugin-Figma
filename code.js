@@ -42,9 +42,29 @@ var _this = this;
 var copiedProperties = null;
 var isQuickPasteActive = false;
 var selectionChangeHandler = null;
+var temporaryVectors = []; // Array para guardar IDs de vectores temporales
+
+// Función para limpiar vectores temporales
+function cleanupTemporaryVectors() {
+    return __awaiter(this, void 0, void 0, function* () {
+        for (var i = 0; i < temporaryVectors.length; i++) {
+            try {
+                var vectorNode = yield figma.getNodeByIdAsync(temporaryVectors[i]);
+                if (vectorNode) {
+                    vectorNode.remove();
+                    console.log('🧹 Vector temporal limpiado: ' + temporaryVectors[i]);
+                }
+            } catch (e) {
+                // Vector ya no existe, ignorar
+                console.log('🧹 Vector temporal ya no existe: ' + temporaryVectors[i]);
+            }
+        }
+        temporaryVectors = [];
+    });
+}
 
 
-figma.showUI(__html__, { width: 380, height: 575 });
+figma.showUI(__html__, { width: 380, height: 600 });
 
 function clone(val) {
     if (val === undefined || val === figma.mixed) { return val; }
@@ -299,25 +319,322 @@ function deepCopyStyles(node, options) {
         
         const styles = getStylesForNode(node, options);
         
+        // Guardar opciones de clonación para usar en el destino
+        styles.cloneStructure = options.cloneStructure;
+        
         // Información de debug mejorada
         console.log(`Copiando estilos de: ${node.name} (${node.type})`);
         if (node.type === 'INSTANCE') {
             console.log('Es una instancia de componente');
         }
+        if (options.cloneStructure) {
+            console.log('🏗️ Clonación de estructura ACTIVADA');
+        }
         
         // Copiar estilos de hijos para componentes e instancias
         if (node.children && node.children.length > 0) {
             styles.children = {};
-            for (const child of node.children) {
+            styles.childrenOrder = []; // Nuevo: guardar orden exacto
+            
+            for (let i = 0; i < node.children.length; i++) {
+                const child = node.children[i];
                 try {
-                    styles.children[child.name] = yield deepCopyStyles(child, options);
+                    const childStyles = yield deepCopyStyles(child, options);
+                    // Agregar información de orden y tipo
+                    childStyles.originalIndex = i;
+                    childStyles.nodeType = child.type;
+                    childStyles.nodeName = child.name;
+                    
+                    // Información adicional para mejor recreación
+                    if ('width' in child && 'height' in child) {
+                        childStyles.width = child.width;
+                        childStyles.height = child.height;
+                    }
+                    if ('x' in child && 'y' in child) {
+                        childStyles.x = child.x;
+                        childStyles.y = child.y;
+                    }
+                    
+                    // Información especial para vectores
+                    if (child.type === 'VECTOR' || child.type === 'BOOLEAN_OPERATION') {
+                        childStyles.isVector = true;
+                        childStyles.canDuplicate = true;
+                        
+                        // Duplicar inmediatamente el vector y guardarlo temporalmente
+                        try {
+                            var duplicatedVector = child.clone();
+                            // Mover el vector duplicado a una posición temporal fuera del canvas
+                            duplicatedVector.x = -9999;
+                            duplicatedVector.y = -9999;
+                            
+                            // Agregar al canvas temporal para que persista
+                            figma.currentPage.appendChild(duplicatedVector);
+                            
+                            // Guardar el ID para referencia posterior
+                            childStyles.vectorCopyId = duplicatedVector.id;
+                            childStyles.vectorCopyAvailable = true;
+                            
+                            // Registrar para limpieza posterior
+                            temporaryVectors.push(duplicatedVector.id);
+                            
+                            console.log('✅ Vector duplicado y guardado temporalmente: ' + child.name + ' (ID: ' + duplicatedVector.id + ')');
+                        } catch (e) {
+                            console.log('⚠️ No se pudo duplicar vector ' + child.name + ', usará fallback: ' + e.message);
+                            childStyles.vectorCopyAvailable = false;
+                        }
+                        
+                        if ('vectorNetwork' in child) {
+                            childStyles.vectorData = 'complex_vector';
+                        }
+                        
+                        console.log('📐 Vector detectado para clonación: ' + child.name + ' (' + child.type + ')');
+                    }
+                    
+                    styles.children[child.name] = childStyles;
+                    styles.childrenOrder.push({
+                        name: child.name,
+                        type: child.type,
+                        index: i
+                    });
                 } catch (e) {
                     console.log(`Error copiando hijo ${child.name}:`, e.message);
                 }
             }
+            console.log(`🏗️ Copiados estilos de ${node.children.length} hijos con información de orden`);
+            console.log('🔢 Orden original:', styles.childrenOrder.map(function(item) { return item.name + ' (' + item.type + ')'; }).join(' → '));
         }
         
         return styles;
+    });
+}
+
+function createElementFromStructure(elementInfo, parent) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let newElement;
+        
+        // Crear el elemento según su tipo
+        switch (elementInfo.nodeType) {
+            case 'RECTANGLE':
+                newElement = figma.createRectangle();
+                break;
+            case 'ELLIPSE':
+                newElement = figma.createEllipse();
+                break;
+            case 'POLYGON':
+                newElement = figma.createPolygon();
+                break;
+            case 'STAR':
+                newElement = figma.createStar();
+                break;
+            case 'VECTOR':
+                // Intentar usar el vector duplicado si está disponible
+                if (elementInfo.vectorCopyAvailable && elementInfo.vectorCopyId) {
+                    try {
+                        // Buscar el vector duplicado por ID usando método asíncrono
+                        var savedVector = yield figma.getNodeByIdAsync(elementInfo.vectorCopyId);
+                        if (savedVector && savedVector.type === 'VECTOR') {
+                            newElement = savedVector.clone();
+                            console.log('✅ Vector real clonado desde copia guardada: ' + elementInfo.nodeName);
+                        } else {
+                            console.log('⚠️ Vector guardado no encontrado o tipo incorrecto, usando fallback');
+                            newElement = figma.createRectangle();
+                        }
+                    } catch (e) {
+                        console.log('⚠️ Error clonando vector guardado, usando fallback: ' + e.message);
+                        newElement = figma.createRectangle();
+                    }
+                } else {
+                    newElement = figma.createRectangle(); // Fallback
+                    console.log('⚠️ Vector convertido a Rectangle para compatibilidad');
+                }
+                break;
+            case 'BOOLEAN_OPERATION':
+                // Intentar usar la operación booleana duplicada si está disponible
+                if (elementInfo.vectorCopyAvailable && elementInfo.vectorCopyId) {
+                    try {
+                        // Buscar la operación booleana duplicada por ID usando método asíncrono
+                        var savedOperation = yield figma.getNodeByIdAsync(elementInfo.vectorCopyId);
+                        if (savedOperation && savedOperation.type === 'BOOLEAN_OPERATION') {
+                            newElement = savedOperation.clone();
+                            console.log('✅ Boolean Operation real clonada desde copia guardada: ' + elementInfo.nodeName);
+                        } else {
+                            console.log('⚠️ Boolean Operation guardada no encontrada o tipo incorrecto, usando fallback');
+                            newElement = figma.createRectangle();
+                        }
+                    } catch (e) {
+                        console.log('⚠️ Error clonando Boolean Operation guardada, usando fallback: ' + e.message);
+                        newElement = figma.createRectangle();
+                    }
+                } else {
+                    newElement = figma.createRectangle(); // Fallback
+                    console.log('⚠️ Boolean Operation convertida a Rectangle para compatibilidad');
+                }
+                break;
+            case 'LINE':
+                newElement = figma.createLine();
+                break;
+            case 'TEXT':
+                newElement = figma.createText();
+                // Cargar fuente por defecto
+                try {
+                    yield figma.loadFontAsync({ family: "Inter", style: "Regular" });
+                    newElement.characters = elementInfo.nodeName || 'Texto';
+                } catch (e) {
+                    console.log('No se pudo cargar fuente Inter, usando fuente por defecto');
+                }
+                break;
+            case 'FRAME':
+                newElement = figma.createFrame();
+                break;
+            case 'GROUP':
+                newElement = figma.group([], parent); // Crear grupo vacío
+                break;
+            case 'COMPONENT':
+            case 'INSTANCE':
+                newElement = figma.createFrame(); // Los componentes/instancias se convierten en frames
+                break;
+            default:
+                newElement = figma.createRectangle(); // Respaldo por defecto
+                console.log(`⚠️ Tipo de elemento no reconocido: ${elementInfo.nodeType}, usando Rectangle`);
+                break;
+        }
+        
+        // Configurar nombre si no se configuró arriba
+        if (!newElement.name || newElement.name === 'Rectangle') {
+            newElement.name = elementInfo.nodeName || (elementInfo.nodeType + ' clonado');
+        }
+        
+        // Configurar tamaño básico si está disponible
+        if (elementInfo.width && elementInfo.height && 'resize' in newElement) {
+            try {
+                newElement.resize(elementInfo.width, elementInfo.height);
+            } catch (e) {
+                // Si falla, usar tamaño por defecto para elementos creados
+                if ('resize' in newElement && !elementInfo.vectorCopyAvailable) {
+                    newElement.resize(100, 100);
+                }
+            }
+        }
+        
+        // Agregar al padre
+        if (parent && 'appendChild' in parent) {
+            parent.appendChild(newElement);
+        }
+        
+        console.log(`🏗️ Elemento creado: ${newElement.name} (${newElement.type})`);
+        return newElement;
+    });
+}
+
+function cloneStructure(targetNode, sourceStructure, options) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (!options.cloneStructure || !sourceStructure.children) {
+            return; // No hacer nada si no está activada la clonación
+        }
+        
+        console.log('🏗️ Iniciando clonación de estructura...');
+        console.log('Estructura origen: ' + Object.keys(sourceStructure.children).length + ' elementos');
+        console.log('Nodo destino: ' + (targetNode.children ? targetNode.children.length : 0) + ' elementos');
+        
+        // Obtener información de orden original
+        var childrenOrder = sourceStructure.childrenOrder || [];
+        console.log('🔢 Orden objetivo:', childrenOrder.map(function(item) { return item.name + ' (' + item.type + ')'; }).join(' → '));
+        
+        // Obtener tipos de elementos que ya existen en el target
+        var existingTypes = [];
+        var existingNames = [];
+        if (targetNode.children) {
+            for (var i = 0; i < targetNode.children.length; i++) {
+                var childType = targetNode.children[i].type;
+                var childName = targetNode.children[i].name;
+                if (existingTypes.indexOf(childType) === -1) {
+                    existingTypes.push(childType);
+                }
+                existingNames.push(childName);
+            }
+        }
+        
+        console.log('🏗️ Tipos existentes en target: ' + existingTypes.join(', '));
+        console.log('🏗️ Nombres existentes en target: ' + existingNames.join(', '));
+        
+        // Crear elementos en orden específico
+        var elementsToCreate = [];
+        var isAutoLayout = targetNode.layoutMode && targetNode.layoutMode !== 'NONE';
+        
+        console.log('🔧 Target es AutoLayout: ' + (isAutoLayout ? 'Sí' : 'No'));
+        
+        // Procesar elementos en orden original
+        for (var j = 0; j < childrenOrder.length; j++) {
+            var orderInfo = childrenOrder[j];
+            var elementInfo = sourceStructure.children[orderInfo.name];
+            
+            if (!elementInfo) continue;
+            
+            // Verificar si ya existe este tipo
+            var typeExists = existingTypes.indexOf(elementInfo.nodeType) !== -1;
+            var nameExists = existingNames.indexOf(orderInfo.name) !== -1;
+            
+            if (!typeExists && !nameExists) {
+                elementsToCreate.push({
+                    info: elementInfo,
+                    targetIndex: j,
+                    name: orderInfo.name
+                });
+                console.log('📝 Planificado para crear: ' + orderInfo.name + ' (' + elementInfo.nodeType + ') en posición ' + j);
+            } else {
+                console.log('🏗️ ⚠️ Saltando ' + orderInfo.name + ' (' + elementInfo.nodeType + ') - tipo o nombre ya existe');
+            }
+        }
+        
+        console.log('🔍 Elementos a crear: ' + elementsToCreate.length + ' elementos');
+        
+        // Crear elementos en orden
+        for (var k = 0; k < elementsToCreate.length; k++) {
+            var elementToCreate = elementsToCreate[k];
+            var elementInfo = elementToCreate.info;
+            var targetIndex = elementToCreate.targetIndex;
+            
+            console.log('🏗️ Creando: ' + elementToCreate.name + ' (' + elementInfo.nodeType + ') en posición ' + targetIndex);
+            
+            try {
+                var newElement = yield createElementFromStructure(elementInfo, targetNode);
+                
+                // Si es AutoLayout, intentar insertar en la posición correcta
+                if (isAutoLayout && 'insertChild' in targetNode) {
+                    try {
+                        // Calcular la posición de inserción considerando elementos existentes
+                        var insertIndex = Math.min(targetIndex, targetNode.children.length);
+                        
+                        // Remover del final y insertar en la posición correcta
+                        var childIndex = targetNode.children.indexOf(newElement);
+                        if (childIndex !== -1 && childIndex !== insertIndex) {
+                            targetNode.insertChild(insertIndex, newElement);
+                            console.log('📍 Elemento reposicionado en índice ' + insertIndex + ' dentro del AutoLayout');
+                        }
+                    } catch (insertError) {
+                        console.log('⚠️ No se pudo reposicionar en AutoLayout: ' + insertError.message);
+                    }
+                }
+                
+                // Aplicar estilos inmediatamente al elemento recién creado
+                yield deepApplyStyles(newElement, elementInfo);
+                
+                console.log('✅ Elemento creado y estilizado: ' + newElement.name);
+            } catch (e) {
+                console.log('❌ Error creando elemento ' + elementToCreate.name + ': ' + e.message);
+            }
+        }
+        
+        console.log('🏗️ Clonación de estructura completada');
+        
+        // Log final del orden actual
+        if (targetNode.children) {
+            var finalOrder = [];
+            for (var m = 0; m < targetNode.children.length; m++) {
+                finalOrder.push(targetNode.children[m].name + ' (' + targetNode.children[m].type + ')');
+            }
+            console.log('🔢 Orden final: ' + finalOrder.join(' → '));
+        }
     });
 }
 
@@ -344,6 +661,7 @@ function deepApplyStyles(targetNode, styles) {
         delete styleProps.height;
         delete styleProps.isInstance;
         delete styleProps.nodeName;
+        delete styleProps.cloneStructure;
 
         console.log(`🎯 Aplicando estilos a: ${targetNode.name} (${targetNode.type})`);
         console.log('📋 Estilos recibidos:', {
@@ -454,13 +772,15 @@ function deepApplyStyles(targetNode, styles) {
         if ('bottomLeftRadius' in styleProps) applyProperty(targetNode, 'bottomLeftRadius', styleProps.bottomLeftRadius);
         if ('bottomRightRadius' in styleProps) applyProperty(targetNode, 'bottomRightRadius', styleProps.bottomRightRadius);
 
-        const containerLayoutProps = ['layoutMode', 'itemSpacing', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'primaryAxisAlignItems', 'counterAxisAlignItems'];
-        for (const prop of containerLayoutProps) {
+        var containerLayoutProps = ['layoutMode', 'itemSpacing', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'primaryAxisAlignItems', 'counterAxisAlignItems'];
+        for (var i = 0; i < containerLayoutProps.length; i++) {
+            var prop = containerLayoutProps[i];
             if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
         }
         
-        const childLayoutProps = ['layoutAlign', 'layoutGrow', 'layoutSizingHorizontal', 'layoutSizingVertical'];
-        for (const prop of childLayoutProps) {
+        var childLayoutProps = ['layoutAlign', 'layoutGrow', 'layoutSizingHorizontal', 'layoutSizingVertical'];
+        for (var j = 0; j < childLayoutProps.length; j++) {
+            var prop = childLayoutProps[j];
             if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
         }
 
@@ -468,8 +788,9 @@ function deepApplyStyles(targetNode, styles) {
             // Si hay textStyleId, aplicarlo tiene prioridad sobre propiedades individuales
             if (styleProps.textStyleId && styleProps.textStyleId !== '') {
                 // Ya se aplicó arriba, pero aplicamos propiedades individuales solo si no hay Style ID
-                const textProps = ['fontName', 'fontSize', 'letterSpacing', 'lineHeight', 'textAlignHorizontal', 'textAlignVertical', 'textCase', 'textDecoration'];
-                for (const prop of textProps) {
+                var textProps = ['fontName', 'fontSize', 'letterSpacing', 'lineHeight', 'textAlignHorizontal', 'textAlignVertical', 'textCase', 'textDecoration'];
+                for (var k = 0; k < textProps.length; k++) {
+                    var prop = textProps[k];
                     if (prop in styleProps) {
                         if (prop === 'fontName' && styleProps.fontName !== figma.mixed) {
                             try {
@@ -479,15 +800,16 @@ function deepApplyStyles(targetNode, styles) {
                             }
                         }
                         // Solo aplicar si es una propiedad específica que queremos mantener junto con el style
-                        if (['textAlignHorizontal', 'textAlignVertical'].includes(prop)) {
+                        if (['textAlignHorizontal', 'textAlignVertical'].indexOf(prop) !== -1) {
                             applyProperty(targetNode, prop, styleProps[prop]);
                         }
                     }
                 }
             } else {
                 // No hay textStyleId, aplicar todas las propiedades individuales
-                const textProps = ['fontName', 'fontSize', 'letterSpacing', 'lineHeight', 'textAlignHorizontal', 'textAlignVertical', 'textCase', 'textDecoration'];
-                for (const prop of textProps) {
+                var textProps = ['fontName', 'fontSize', 'letterSpacing', 'lineHeight', 'textAlignHorizontal', 'textAlignVertical', 'textCase', 'textDecoration'];
+                for (var m = 0; m < textProps.length; m++) {
+                    var prop = textProps[m];
                     if (prop in styleProps) {
                         if (prop === 'fontName' && styleProps.fontName !== figma.mixed) {
                             try {
@@ -506,6 +828,12 @@ function deepApplyStyles(targetNode, styles) {
             try {
                 targetNode.resize(width, height);
             } catch (e) {}
+        }
+
+        // ---- CLONACIÓN DE ESTRUCTURA (NUEVA FUNCIONALIDAD) ----
+        // Clonar elementos faltantes ANTES de aplicar estilos a los hijos
+        if (children && styles.cloneStructure) {
+            yield cloneStructure(targetNode, styles, { cloneStructure: styles.cloneStructure });
         }
 
         // ---- MEJORADO PARA COMPONENTES ----
@@ -546,14 +874,15 @@ const quickPasteHandler = () => __awaiter(_this, void 0, void 0, function* () {
     if (!isQuickPasteActive || !copiedProperties) return;
     const selection = figma.currentPage.selection;
     if (selection.length > 0) {
-        for (const originalNode of selection) {
-            let targetNode = originalNode;
-            const needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && (targetNode.layoutMode === 'NONE' || !targetNode.layoutMode);
+        for (var i = 0; i < selection.length; i++) {
+            var originalNode = selection[i];
+            var targetNode = originalNode;
+            var needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && (targetNode.layoutMode === 'NONE' || !targetNode.layoutMode);
             if (needsWrapping) {
-                const frame = figma.createFrame();
-                const parent = targetNode.parent;
+                var frame = figma.createFrame();
+                var parent = targetNode.parent;
                 if (parent) {
-                    const index = parent.children.indexOf(originalNode);
+                    var index = parent.children.indexOf(originalNode);
                     parent.insertChild(index, frame);
                 }
                 frame.x = targetNode.x;
@@ -581,9 +910,9 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                     figma.clientStorage.getAsync('opacity'), figma.clientStorage.getAsync('radius'),
                     figma.clientStorage.getAsync('layout'), figma.clientStorage.getAsync('size'),
                     figma.clientStorage.getAsync('text'), figma.clientStorage.getAsync('autoWrap'), 
-                    figma.clientStorage.getAsync('language')
+                    figma.clientStorage.getAsync('cloneStructure'), figma.clientStorage.getAsync('language')
                 ]);
-                figma.ui.postMessage({ type: 'preferencesLoaded', preferences: { theme: prefs[0], fill: prefs[1], stroke: prefs[2], effects: prefs[3], opacity: prefs[4], radius: prefs[5], layout: prefs[6], size: prefs[7], text: prefs[8], autoWrap: prefs[9], language: prefs[10] } });
+                figma.ui.postMessage({ type: 'preferencesLoaded', preferences: { theme: prefs[0], fill: prefs[1], stroke: prefs[2], effects: prefs[3], opacity: prefs[4], radius: prefs[5], layout: prefs[6], size: prefs[7], text: prefs[8], autoWrap: prefs[9], cloneStructure: prefs[10], language: prefs[11] } });
             }
             return;
         }
@@ -610,6 +939,10 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                 figma.notify('Por favor, selecciona un objeto para copiar sus estilos.');
                 return;
             }
+            
+            // Limpiar vectores temporales de la copia anterior
+            yield cleanupTemporaryVectors();
+            
             const node = selection[0];
             console.log(`Copiando estilos de: ${node.name} (${node.type})`);
             
@@ -622,6 +955,7 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                 copyLayout: msg.copyLayout,
                 copySize: msg.copySize,
                 copyText: msg.copyText,
+                cloneStructure: msg.cloneStructure,
             };
             copiedProperties = yield deepCopyStyles(node, options);
             copiedProperties.autoWrap = msg.autoWrap;
@@ -687,14 +1021,15 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
                 figma.notify('Selecciona uno o más objetos para pegar los estilos.');
                 return;
             }
-            for (const originalNode of selection) {
-                let targetNode = originalNode;
-                const needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && (targetNode.layoutMode === 'NONE' || !targetNode.layoutMode);
+            for (var j = 0; j < selection.length; j++) {
+                var originalNode = selection[j];
+                var targetNode = originalNode;
+                var needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && (targetNode.layoutMode === 'NONE' || !targetNode.layoutMode);
                 if (needsWrapping) {
-                    const frame = figma.createFrame();
-                    const parent = targetNode.parent;
+                    var frame = figma.createFrame();
+                    var parent = targetNode.parent;
                     if (parent) {
-                        const index = parent.children.indexOf(originalNode);
+                        var index = parent.children.indexOf(originalNode);
                         parent.insertChild(index, frame);
                     }
                     frame.x = targetNode.x;

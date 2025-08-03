@@ -106,6 +106,19 @@ function getStylesForNode(node, options) {
     console.log('- copyText:', options.copyText);
     console.log('=====================================');
     
+    // Guardar las opciones para aplicación posterior
+    styles.originalOptions = {
+        copyFill: options.copyFill,
+        copyStroke: options.copyStroke,
+        copyEffects: options.copyEffects,
+        copyOpacity: options.copyOpacity,
+        copyRadius: options.copyRadius,
+        copyLayout: options.copyLayout,
+        copySize: options.copySize,
+        copyText: options.copyText,
+        cloneStructure: options.cloneStructure
+    };
+    
     // Fill (rellenos y colores)
     if (options.copyFill) {
         console.log('🔍 Analizando Fill...');
@@ -655,6 +668,18 @@ function deepApplyStyles(targetNode, styles) {
         const children = styles.children;
         const width = styles.width;
         const height = styles.height;
+        const originalOptions = styles.originalOptions || {
+            copyFill: true,
+            copyStroke: true,
+            copyEffects: true,
+            copyOpacity: true,
+            copyRadius: true,
+            copyLayout: true,
+            copySize: true,
+            copyText: true,
+            cloneStructure: false
+        };
+        
         delete styleProps.children;
         delete styleProps.nodeType;
         delete styleProps.width;
@@ -662,6 +687,7 @@ function deepApplyStyles(targetNode, styles) {
         delete styleProps.isInstance;
         delete styleProps.nodeName;
         delete styleProps.cloneStructure;
+        delete styleProps.originalOptions;
 
         console.log(`🎯 Aplicando estilos a: ${targetNode.name} (${targetNode.type})`);
         console.log('📋 Estilos recibidos:', {
@@ -673,9 +699,10 @@ function deepApplyStyles(targetNode, styles) {
             hasStrokes: !!styleProps.strokes,
             hasEffects: !!styleProps.effects
         });
+        console.log('⚙️ Opciones originales:', originalOptions);
 
         // PRIORIDAD 1: Aplicar Style IDs de Design System primero (MÉTODO ASÍNCRONO)
-        if (styleProps.fillStyleId) {
+        if (originalOptions.copyFill && styleProps.fillStyleId) {
             console.log(`🎨 Aplicando fillStyleId: ${styleProps.fillStyleId}`);
             try {
                 // Usar método asíncrono para estilos externos
@@ -699,7 +726,7 @@ function deepApplyStyles(targetNode, styles) {
                 }
             }
         }
-        if (styleProps.strokeStyleId) {
+        if (originalOptions.copyStroke && styleProps.strokeStyleId) {
             console.log(`🎨 Aplicando strokeStyleId: ${styleProps.strokeStyleId}`);
             try {
                 yield targetNode.setStrokeStyleIdAsync(styleProps.strokeStyleId);
@@ -714,7 +741,7 @@ function deepApplyStyles(targetNode, styles) {
                 }
             }
         }
-        if (styleProps.effectStyleId) {
+        if (originalOptions.copyEffects && styleProps.effectStyleId) {
             console.log(`🎨 Aplicando effectStyleId: ${styleProps.effectStyleId}`);
             try {
                 yield targetNode.setEffectStyleIdAsync(styleProps.effectStyleId);
@@ -729,7 +756,7 @@ function deepApplyStyles(targetNode, styles) {
                 }
             }
         }
-        if (targetNode.type === 'TEXT' && styleProps.textStyleId) {
+        if (originalOptions.copyText && targetNode.type === 'TEXT' && styleProps.textStyleId) {
             console.log(`🎨 Aplicando textStyleId: ${styleProps.textStyleId}`);
             try {
                 yield targetNode.setTextStyleIdAsync(styleProps.textStyleId);
@@ -747,44 +774,66 @@ function deepApplyStyles(targetNode, styles) {
 
         // PRIORIDAD 2: Aplicar propiedades individuales solo si NO hay Style IDs
         // Fill (rellenos y colores)
-        if ((!styleProps.fillStyleId || styleProps.fillStyleId === '') && 'fills' in styleProps) {
+        if (originalOptions.copyFill && (!styleProps.fillStyleId || styleProps.fillStyleId === '') && 'fills' in styleProps) {
             applyProperty(targetNode, 'fills', styleProps.fills);
         }
         
         // Stroke (bordes y trazos) - aplicar propiedades individuales
-        if ((!styleProps.strokeStyleId || styleProps.strokeStyleId === '') && 'strokes' in styleProps) {
+        if (originalOptions.copyStroke && (!styleProps.strokeStyleId || styleProps.strokeStyleId === '') && 'strokes' in styleProps) {
             applyProperty(targetNode, 'strokes', styleProps.strokes);
         }
-        if ('strokeWeight' in styleProps) applyProperty(targetNode, 'strokeWeight', styleProps.strokeWeight);
-        if ('strokeAlign' in styleProps) applyProperty(targetNode, 'strokeAlign', styleProps.strokeAlign);
+        if (originalOptions.copyStroke && 'strokeWeight' in styleProps) applyProperty(targetNode, 'strokeWeight', styleProps.strokeWeight);
+        if (originalOptions.copyStroke && 'strokeAlign' in styleProps) applyProperty(targetNode, 'strokeAlign', styleProps.strokeAlign);
         
         // Effects (sombras y efectos)
-        if ((!styleProps.effectStyleId || styleProps.effectStyleId === '') && 'effects' in styleProps) {
+        if (originalOptions.copyEffects && (!styleProps.effectStyleId || styleProps.effectStyleId === '') && 'effects' in styleProps) {
             applyProperty(targetNode, 'effects', styleProps.effects);
         }
         
         // Opacity & Blending (transparencia)
-        if ('opacity' in styleProps) applyProperty(targetNode, 'opacity', styleProps.opacity);
+        if (originalOptions.copyOpacity && 'opacity' in styleProps) applyProperty(targetNode, 'opacity', styleProps.opacity);
         
         // Corner Radius (bordes redondeados)
-        if ('topLeftRadius' in styleProps) applyProperty(targetNode, 'topLeftRadius', styleProps.topLeftRadius);
-        if ('topRightRadius' in styleProps) applyProperty(targetNode, 'topRightRadius', styleProps.topRightRadius);
-        if ('bottomLeftRadius' in styleProps) applyProperty(targetNode, 'bottomLeftRadius', styleProps.bottomLeftRadius);
-        if ('bottomRightRadius' in styleProps) applyProperty(targetNode, 'bottomRightRadius', styleProps.bottomRightRadius);
+        if (originalOptions.copyRadius && 'topLeftRadius' in styleProps) applyProperty(targetNode, 'topLeftRadius', styleProps.topLeftRadius);
+        if (originalOptions.copyRadius && 'topRightRadius' in styleProps) applyProperty(targetNode, 'topRightRadius', styleProps.topRightRadius);
+        if (originalOptions.copyRadius && 'bottomLeftRadius' in styleProps) applyProperty(targetNode, 'bottomLeftRadius', styleProps.bottomLeftRadius);
+        if (originalOptions.copyRadius && 'bottomRightRadius' in styleProps) applyProperty(targetNode, 'bottomRightRadius', styleProps.bottomRightRadius);
 
-        var containerLayoutProps = ['layoutMode', 'itemSpacing', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'primaryAxisAlignItems', 'counterAxisAlignItems'];
-        for (var i = 0; i < containerLayoutProps.length; i++) {
-            var prop = containerLayoutProps[i];
-            if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
-        }
-        
-        var childLayoutProps = ['layoutAlign', 'layoutGrow', 'layoutSizingHorizontal', 'layoutSizingVertical'];
-        for (var j = 0; j < childLayoutProps.length; j++) {
-            var prop = childLayoutProps[j];
-            if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
+        // Layout properties
+        if (originalOptions.copyLayout) {
+            var containerLayoutProps = ['layoutMode', 'itemSpacing', 'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'primaryAxisAlignItems', 'counterAxisAlignItems'];
+            for (var i = 0; i < containerLayoutProps.length; i++) {
+                var prop = containerLayoutProps[i];
+                if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
+            }
+            
+            var childLayoutProps = ['layoutAlign', 'layoutGrow', 'layoutSizingHorizontal', 'layoutSizingVertical'];
+            for (var j = 0; j < childLayoutProps.length; j++) {
+                var prop = childLayoutProps[j];
+                if (prop in styleProps) applyProperty(targetNode, prop, styleProps[prop]);
+            }
         }
 
-        if (targetNode.type === 'TEXT') {
+        // Size properties
+        if (originalOptions.copySize) {
+            if ('width' in styleProps && 'resize' in targetNode) {
+                try {
+                    targetNode.resize(styleProps.width, targetNode.height);
+                } catch (e) {
+                    console.log('No se pudo cambiar el ancho');
+                }
+            }
+            if ('height' in styleProps && 'resize' in targetNode) {
+                try {
+                    targetNode.resize(targetNode.width, styleProps.height);
+                } catch (e) {
+                    console.log('No se pudo cambiar la altura');
+                }
+            }
+        }
+
+        // Text properties
+        if (originalOptions.copyText && targetNode.type === 'TEXT') {
             // Si hay textStyleId, aplicarlo tiene prioridad sobre propiedades individuales
             if (styleProps.textStyleId && styleProps.textStyleId !== '') {
                 // Ya se aplicó arriba, pero aplicamos propiedades individuales solo si no hay Style ID
@@ -824,15 +873,9 @@ function deepApplyStyles(targetNode, styles) {
             }
         }
 
-        if (width !== undefined && height !== undefined && 'resize' in targetNode) {
-            try {
-                targetNode.resize(width, height);
-            } catch (e) {}
-        }
-
         // ---- CLONACIÓN DE ESTRUCTURA (NUEVA FUNCIONALIDAD) ----
         // Clonar elementos faltantes ANTES de aplicar estilos a los hijos
-        if (children && styles.cloneStructure) {
+        if (originalOptions.cloneStructure && children && styles.cloneStructure) {
             yield cloneStructure(targetNode, styles, { cloneStructure: styles.cloneStructure });
         }
 
@@ -1024,7 +1067,8 @@ figma.ui.onmessage = (msg) => __awaiter(_this, void 0, void 0, function* () {
             for (var j = 0; j < selection.length; j++) {
                 var originalNode = selection[j];
                 var targetNode = originalNode;
-                var needsWrapping = copiedProperties.autoWrap && copiedProperties.layoutMode && (targetNode.layoutMode === 'NONE' || !targetNode.layoutMode);
+                var originalOptions = copiedProperties.originalOptions || { autoWrap: copiedProperties.autoWrap };
+                var needsWrapping = originalOptions.autoWrap && copiedProperties.autoWrap && copiedProperties.layoutMode && (targetNode.layoutMode === 'NONE' || !targetNode.layoutMode);
                 if (needsWrapping) {
                     var frame = figma.createFrame();
                     var parent = targetNode.parent;
